@@ -9,6 +9,7 @@ import Profile from '../ui/Profile';
 import Projects from '../ui/Projects';
 import Skills from '../ui/Skills';
 import Contact from '../ui/Contact';
+import Certifications from '../ui/Certifications';
 
 // Global camera animated target
 export const camTarget = {
@@ -20,7 +21,7 @@ export const camTarget = {
 // ─────────────────────────────────────────────────────────────────────────────
 // Camera — WASD + Mouse + Touch drag + Fly-To
 // ─────────────────────────────────────────────────────────────────────────────
-function CameraController({ mobileKeys }) {
+function CameraController({ mobileKeys, highSensitivity }) {
   const { camera } = useThree();
   const keys   = useRef({});
   const mouse  = useRef({ x: 0, y: 0 });
@@ -86,8 +87,13 @@ function CameraController({ mobileKeys }) {
     finalPos.z += Math.cos(t * 0.1) * 0.6;
     
     camera.position.lerp(finalPos, 0.07);
-    const lx = mouse.current.x * 2.2 - touch.current.dx * 1.5;
-    const ly = -mouse.current.y * 0.9 - touch.current.dy;
+    
+    // Sensitivity Multiplier
+    const mx = highSensitivity ? 5.5 : 2.2;
+    const my = highSensitivity ? 2.5 : 0.9;
+    const lx = mouse.current.x * mx - touch.current.dx * 1.5;
+    const ly = -mouse.current.y * my - touch.current.dy;
+    
     curLook.current.x += (lx - curLook.current.x) * 0.06;
     curLook.current.y += (ly - curLook.current.y) * 0.06;
     
@@ -136,7 +142,7 @@ function ProfileStation({ position, onActivate, isActive }) {
       {/* Top rim */}
       <mesh position={[0,1.39,.0]}><boxGeometry args={[2,.04,.18]}/><meshStandardMaterial color={C} emissive={C} emissiveIntensity={(hov||isActive)?1.6:.5}/></mesh>
       {/* Bottom rim */}
-      <mesh position={[0,-1.39,.0]}><boxGeometry args={[2,.04,.18]}/><meshStandardMaterial color={C} emissive={C} emissiveIntensity={(hov||isActive)?.8:.2}/></mesh>
+      <mesh position={[0,-1.39,.0]}><boxGeometry args={[2,.04,.18]}/><meshStandardMaterial color={C} emissive={C} emissiveIntensity={(hov||isActive) ? 0.8 : 0.2}/></mesh>
       {/* Left / right edge glow lines */}
       {[-1,1].map((x,i)=>(
         <mesh key={i} position={[x*.99,0,.0]}><boxGeometry args={[.025,2.8,.18]}/><meshStandardMaterial color={C} emissive={C} emissiveIntensity={(hov||isActive)?1.2:.35}/></mesh>
@@ -170,7 +176,7 @@ function ProfileStation({ position, onActivate, isActive }) {
       {/* Glow circle on ground */}
       <mesh position={[0,-1.98,0]} rotation={[-Math.PI/2,0,0]}>
         <circleGeometry args={[1.6,36]}/>
-        <meshBasicMaterial color={C} transparent opacity={(hov||isActive)?.15:.06}/>
+        <meshBasicMaterial color={C} transparent opacity={(hov||isActive) ? 0.15 : 0.06}/>
       </mesh>
 
       <Html zIndexRange={[100, 0]} position={[0,-2.25,0]} center distanceFactor={10} style={{pointerEvents:'none',fontFamily:"'Oswald'",fontSize:24,letterSpacing:'.35em',textTransform:'uppercase',color:hov||isActive?C:`${C}70`,whiteSpace:'nowrap',userSelect:'none',textShadow:'0 2px 10px rgba(0,0,0,0.8)'}}>Profile</Html>
@@ -194,7 +200,11 @@ function ProjectsStation({ position, onActivate, isActive }) {
     if(ring2.current){ring2.current.rotation.z=-t*.4; ring2.current.rotation.y=t*.3;}
     if(ring3.current){ring3.current.rotation.y=t*.5; ring3.current.rotation.z=Math.sin(t*.35)*.15;}
     if(coreRef.current){coreRef.current.rotation.y=t*.8; const p=.5+Math.sin(t*2)*.5; coreRef.current.material.emissiveIntensity=(hov||isActive)?1.2+p*.8:.4+p*.3;}
-    if(glowRef.current) glowRef.current.material.opacity=(hov||isActive)?.18+Math.sin(t*1.5)*.07:.04;
+    if (glowRef.current) {
+      glowRef.current.material.opacity = (hov || isActive)
+        ? (0.18 + Math.sin(t * 1.5) * 0.07)
+        : 0.04;
+    }
   });
 
   const oe=()=>{setHov(true);document.body.style.cursor='pointer';audio.hover();if(root.current) gsap.to(root.current.scale,{x:1.07,y:1.07,z:1.07,duration:.3,ease:'power2.out'});};
@@ -229,7 +239,7 @@ function ProjectsStation({ position, onActivate, isActive }) {
       {/* Glow circle on ground */}
       <mesh position={[0,-1.98,0]} rotation={[-Math.PI/2,0,0]}>
         <circleGeometry args={[1.5,36]}/>
-        <meshBasicMaterial color={C} transparent opacity={(hov||isActive)?.15:.06}/>
+        <meshBasicMaterial color={C} transparent opacity={(hov||isActive) ? 0.15 : 0.06}/>
       </mesh>
 
       <Html zIndexRange={[100, 0]} position={[0,-2.25,0]} center distanceFactor={10} style={{pointerEvents:'none',fontFamily:"'Oswald'",fontSize:24,letterSpacing:'.35em',textTransform:'uppercase',color:hov||isActive?C:`${C}70`,whiteSpace:'nowrap',userSelect:'none',textShadow:'0 2px 10px rgba(0,0,0,0.8)'}}>Projects</Html>
@@ -268,14 +278,14 @@ function SkillsStation({ position, onActivate, isActive }) {
   return (
     <group ref={root} position={position} onPointerEnter={oe} onPointerLeave={ol} onClick={()=>{audio.click();onActivate();}}>
       {/* Base platform */}
-      <mesh position={[0,-1.1,0]}><boxGeometry args={[1.8,.08,1.2]}/><meshStandardMaterial color="#080f08" roughness={.9} emissive={C} emissiveIntensity={(hov||isActive)?.15:.04}/></mesh>
+      <mesh position={[0,-1.1,0]}><boxGeometry args={[1.8,.08,1.2]}/><meshStandardMaterial color="#080f08" roughness={.9} emissive={C} emissiveIntensity={(hov||isActive) ? 0.15 : 0.04}/></mesh>
 
       {/* Animated vertical bars (each has 3D depth) */}
       {barData.map((d,i)=>(
         <group key={i} position={[-0.67+i*.44,-.55+d.h/2,0]} ref={el=>barsRef.current[i]=el}>
           <mesh>
             <boxGeometry args={[.28,d.h,.28]}/>
-            <meshStandardMaterial color="#040a04" roughness={.9} emissive={d.c} emissiveIntensity={(hov||isActive)?.9:.3}/>
+            <meshStandardMaterial color="#040a04" roughness={.9} emissive={d.c} emissiveIntensity={(hov||isActive) ? 0.9 : 0.3}/>
           </mesh>
           {/* Top cap glow */}
           <mesh position={[0,d.h/2,0]}>
@@ -292,7 +302,7 @@ function SkillsStation({ position, onActivate, isActive }) {
 
       {/* Frame around bars */}
       {[-0.88, 0.88].map((x,i)=>(
-        <mesh key={i} position={[x,-0.55,0]}><boxGeometry args={[.025,2.2,.025]}/><meshStandardMaterial color={C} emissive={C} emissiveIntensity={(hov||isActive)?.8:.2}/></mesh>
+        <mesh key={i} position={[x,-0.55,0]}><boxGeometry args={[.025,2.2,.025]}/><meshStandardMaterial color={C} emissive={C} emissiveIntensity={(hov||isActive) ? 0.8 : 0.2}/></mesh>
       ))}
 
       {/* Header label */}
@@ -307,7 +317,7 @@ function SkillsStation({ position, onActivate, isActive }) {
       {/* Ground glow */}
       <mesh position={[0,-1.98,0]} rotation={[-Math.PI/2,0,0]}>
         <circleGeometry args={[1.4,36]}/>
-        <meshBasicMaterial color={C} transparent opacity={(hov||isActive)?.15:.06}/>
+        <meshBasicMaterial color={C} transparent opacity={(hov||isActive) ? 0.15 : 0.06}/>
       </mesh>
 
       <Html zIndexRange={[100, 0]} position={[0,-2.25,0]} center distanceFactor={10} style={{pointerEvents:'none',fontFamily:"'Oswald'",fontSize:24,letterSpacing:'.35em',textTransform:'uppercase',color:hov||isActive?C:`${C}70`,whiteSpace:'nowrap',userSelect:'none',textShadow:'0 2px 10px rgba(0,0,0,0.8)'}}>Skills</Html>
@@ -350,7 +360,7 @@ function ContactStation({ position, onActivate, isActive }) {
       </mesh>
       <mesh position={[0,-.6,0]}>
         <cylinderGeometry args={[.6,.7,.2,8]}/>
-        <meshStandardMaterial color="#140505" roughness={.8} emissive={C} emissiveIntensity={(hov||isActive)?.2:.05}/>
+        <meshStandardMaterial color="#140505" roughness={.8} emissive={C} emissiveIntensity={(hov||isActive) ? 0.2 : 0.05}/>
       </mesh>
 
       {/* Main console body - angled */}
@@ -363,12 +373,48 @@ function ContactStation({ position, onActivate, isActive }) {
       {[-.55, .55].map((x,i)=>(
         <mesh key={i} position={[x, .1, .15]} rotation={[-.2, 0, 0]}>
           <boxGeometry args={[.1, 1.5, .7]}/>
-          <meshStandardMaterial color="#1a0808" roughness={.8} emissive={C} emissiveIntensity={(hov||isActive)?.3:.1}/>
+          <meshStandardMaterial color="#1a0808" roughness={.8} emissive={C} emissiveIntensity={(hov||isActive) ? 0.3 : 0.1}/>
         </mesh>
       ))}
 
       {/* Glowing screen */}
       <Html zIndexRange={[100, 0]} position={[0,-2.25,0]} center distanceFactor={10} style={{pointerEvents:'none',fontFamily:"'Oswald'",fontSize:24,letterSpacing:'.35em',textTransform:'uppercase',color:hov||isActive?C:`${C}70`,whiteSpace:'nowrap',userSelect:'none',textShadow:'0 2px 10px rgba(0,0,0,0.8)'}}>Contact</Html>
+    </group>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CERTIFICATIONS — Holographic accreditation slab
+// ─────────────────────────────────────────────────────────────────────────────
+function CertificationsStation({ position, onActivate, isActive }) {
+  const root = useRef(); const screenRef = useRef();
+  const [hov, setHov] = useState(false);
+  
+  useFrame((state) => {
+    const t = state.clock.elapsedTime;
+    if (!root.current) return;
+    root.current.position.y = position[1] + Math.sin(t * 0.8 + 2) * 0.12;
+    if (screenRef.current) screenRef.current.material.opacity = 0.4 + Math.sin(t * 3)*0.1;
+  });
+
+  const oe = () => { setHov(true); document.body.style.cursor='pointer'; audio.hover(); if(root.current) gsap.to(root.current.scale,{x:1.05,y:1.05,z:1.05,duration:.3,ease:'power2.out'}); };
+  const ol = () => { setHov(false); document.body.style.cursor='auto'; if(root.current) gsap.to(root.current.scale,{x:1,y:1,z:1,duration:.3}); };
+
+  const C = '#B388FF';
+  return (
+    <group ref={root} position={position} onPointerEnter={oe} onPointerLeave={ol} onClick={()=>{audio.click();onActivate();}}>
+      <mesh><boxGeometry args={[1.5, 2.5, 0.2]}/><meshStandardMaterial color="#060c18" roughness={0.9} metalness={0.1}/></mesh>
+      {[-0.76, 0.76].map((x,i)=>(<mesh key={i} position={[x,0,0]}><boxGeometry args={[0.04, 2.5, 0.22]}/><meshStandardMaterial color={C} emissive={C} emissiveIntensity={(hov||isActive)?1:.4}/></mesh>))}
+      
+      {/* Target screen */}
+      <mesh ref={screenRef} position={[0, 0.5, 0.12]}><planeGeometry args={[1.2, 1.0]}/><meshBasicMaterial color={C} transparent opacity={0.5}/></mesh>
+      
+      <Html zIndexRange={[100, 0]} position={[0, 0.5, 0.14]} center transform style={{pointerEvents:'none',fontFamily:"'Share Tech Mono',monospace",fontSize:10,color:'#fff',userSelect:'none',textShadow:`0 0 6px ${C}`}}>
+        <div>ACCREDITATION</div>
+        <div>VERIFIED</div>
+      </Html>
+
+      <Html zIndexRange={[100, 0]} position={[0,-2.25,0]} center distanceFactor={10} style={{pointerEvents:'none',fontFamily:"'Oswald'",fontSize:24,letterSpacing:'.35em',textTransform:'uppercase',color:hov||isActive?C:`${C}70`,whiteSpace:'nowrap',userSelect:'none',textShadow:'0 2px 10px rgba(0,0,0,0.8)'}}>Certifications</Html>
     </group>
   );
 }
@@ -383,7 +429,7 @@ function GameEnvironment() {
     const c = document.createElement('canvas');
     c.width = 512; c.height = 512;
     const ctx = c.getContext('2d');
-    ctx.fillStyle = '#1e1b4b'; // Deep dark blue for off windows
+    ctx.fillStyle = '#080808'; // Deep dark black for off windows
     ctx.fillRect(0,0,512,512);
     
     const cols = 8; const rows = 8;
@@ -391,8 +437,8 @@ function GameEnvironment() {
     const padXX = (512 - (cols * wWidth)) / (cols + 1);
     const padYY = (512 - (rows * wHeight)) / (rows + 1);
     
-    // Some colors: mainly dark, some bright blue/white/yellow
-    const colors = ['#1e1b4b','#1e1b4b','#1e1b4b','#1e1b4b','#1e1b4b','#1e1b4b', '#60a5fa', '#93c5fd', '#fef08a', '#ffffff'];
+    // Some colors: mainly dark, some bright yellow/white
+    const colors = ['#080808','#080808','#080808','#080808','#080808','#080808', '#fef08a', '#ffffff', '#FFD166'];
     
     for(let row=0; row<rows; row++) {
       for(let col=0; col<cols; col++) {
@@ -411,23 +457,32 @@ function GameEnvironment() {
 
   const buildings = useMemo(() => {
     return Array.from({length: 40}).map(() => {
-      const x = (rs() * 120) - 60; // Spread horizontally
+      const x = (rs() * 160) - 80; // Spread horizontally
       const side = rs() > 0.5 ? 1 : -1;
-      const z = side * (12 + rs() * 10); // Placed off the road
+      const z = side === 1 ? (30 + rs() * 20) : (-18 - rs() * 15); // Strictly push boundaries away from center interaction zone Z:(0->10)
       const width = 6 + rs() * 10;
       const depth = 6 + rs() * 10;
-      const height = 15 + rs() * 35; // Variable tall skyscrapers
+      const height = 15 + rs() * 45; // Variable tall skyscrapers
       return { x, z, width, height, depth };
     });
   }, []);
 
   const trees = useMemo(() => {
     return Array.from({length: 24}).map(() => {
-      const x = (rs() * 120) - 60;
+      const x = (rs() * 160) - 80;
       const side = rs() > 0.5 ? 1 : -1;
-      const z = side * (7.5 + rs() * 2);
+      const z = side === 1 ? (20 + rs() * 10) : (-14 - rs() * 8);
       return { x, z, h: 2 + rs(), scale: 0.8 + rs()*0.6 };
     });
+  }, []);
+
+  const lights = useMemo(() => {
+    const arr = [];
+    for(let x=-24; x<=24; x+=12) {
+      arr.push({ x, z: -4.5 });
+      arr.push({ x: x+6, z: 4.5 });
+    }
+    return arr;
   }, []);
 
   return (
@@ -481,10 +536,23 @@ function GameEnvironment() {
         <group key={`tree-${i}`} position={[t.x, 0, t.z]} scale={t.scale}>
           {/* Trunk */}
           <mesh position={[0, t.h/2, 0]} castShadow>
-            <coneGeometry args={[0.9, 2.2, 5]}/>
-            <meshStandardMaterial color="#08140a" roughness={0.8} emissive="#030a04" emissiveIntensity={0.6}/>
+            <cylinderGeometry args={[0.2, 0.2, t.h, 4]}/>
+            <meshStandardMaterial color="#78350f" roughness={1}/>
+          </mesh>
+          {/* Leaves */}
+          <mesh position={[0, t.h + 1, 0]} rotation={[0, Math.PI/4, 0]} castShadow>
+            <coneGeometry args={[1.6, 3, 4]}/>
+            <meshStandardMaterial color="#15803d" roughness={1}/>
           </mesh>
         </group>
+      ))}
+
+      {/* Background Block Buildings */}
+      {buildings.map((b, i) => (
+        <mesh key={`bldg-${i}`} position={[b.x, b.height/2, b.z]} castShadow receiveShadow>
+          <boxGeometry args={[b.width, b.height, b.depth]}/>
+          <meshStandardMaterial map={windowTex} roughness={0.9} emissiveMap={windowTex} emissive={"#ffffff"} emissiveIntensity={0.85} />
+        </mesh>
       ))}
 
       {/* Street Lights */}
@@ -504,13 +572,11 @@ function GameEnvironment() {
             <boxGeometry args={[0.3, 0.08, 0.4]}/>
             <meshStandardMaterial color="#050505"/>
           </mesh>
-          {/* Light bulb surface */}
+          {/* Light bulb surface only (Removed heavy pointLight to save WebGL max limit) */}
           <mesh position={[0, 3.85, (l.z<0?1:-1)]} rotation={[Math.PI/2, 0, 0]}>
-            <planeGeometry args={[0.2, 0.3]}/>
+            <planeGeometry args={[0.25, 0.35]}/>
             <meshBasicMaterial color="#FFD166"/>
           </mesh>
-          {/* Light source */}
-          <pointLight position={[0, 3.7, (l.z<0?1:-1)]} intensity={15} distance={9} decay={2} color="#FFD166" />
         </group>
       ))}
 
@@ -644,7 +710,7 @@ function MobileControls({ onKeys }) {
     <div style={{
       width:50,height:50,
       background:pressed[key]?'rgba(212,168,67,0.3)':'rgba(0,0,0,0.7)',
-      border:`1px solid rgba(212,168,67,${pressed[key]?.6:.2})`,
+      border:`1px solid rgba(212,168,67,${pressed[key] ? 0.6 : 0.2})`,
       borderRadius:4,color:pressed[key]?'#D4A843':'rgba(255,255,255,0.7)',
       display:'flex',alignItems:'center',justifyContent:'center',
       cursor:'pointer',touchAction:'none',userSelect:'none',
@@ -673,6 +739,7 @@ const STATION_POS = {
   profile: [-3, 0, 1],
   projects:   [3,  0, 1],
   contact:  [9,  0, 1],
+  certifications: [15, 0, 1],
 };
 const STATION_CAM = Object.fromEntries(
   Object.entries(STATION_POS).map(([k, p]) => [
@@ -685,6 +752,8 @@ export default function GameScene() {
   const setActiveSection= useGameStore((s)=>s.setActiveSection);
   const soundEnabled    = useGameStore((s)=>s.soundEnabled);
   const setSoundEnabled = useGameStore((s)=>s.setSoundEnabled);
+  const highSensitivity = useGameStore((s)=>s.highSensitivity);
+  const toggleSensitivity = useGameStore((s)=>s.toggleSensitivity);
   const wrapRef = useRef(null);
   const [mobileKeys, setMobileKeys] = useState({});
   const [isMobile, setIsMobile] = useState(false);
@@ -725,7 +794,7 @@ export default function GameScene() {
         gl={{antialias:!isMobile,toneMapping:THREE.ACESFilmicToneMapping,toneMappingExposure:.95}}
         style={{width:'100%',height:'100%'}}>
         <Suspense fallback={null}>
-          <CameraController mobileKeys={mobileKeys}/>
+          <CameraController mobileKeys={mobileKeys} highSensitivity={highSensitivity} />
           <color attach="background" args={['#0b162c']} />
           <fog attach="fog" args={['#0b162c', 30, 200]}/>
 
@@ -738,6 +807,7 @@ export default function GameScene() {
           <spotLight position={[-3, 6, 2]}  angle={0.4} penumbra={0.5} intensity={5.5} color="#D4A843" />
           <spotLight position={[3,  6, 2]}  angle={0.4} penumbra={0.5} intensity={5.5} color="#6AC46A" />
           <spotLight position={[9,  6, -1]} angle={0.4} penumbra={0.5} intensity={5.5} color="#D46A6A" />
+          <spotLight position={[15, 6, 2]}  angle={0.4} penumbra={0.5} intensity={5.5} color="#B388FF" />
           
 
           <Environment preset="night"/>
@@ -749,6 +819,7 @@ export default function GameScene() {
           <ProjectsStation position={STATION_POS.projects} onActivate={()=>activateStation('projects')} isActive={activeSection==='projects'}/>
           <SkillsStation   position={STATION_POS.skills}   onActivate={()=>activateStation('skills')}   isActive={activeSection==='skills'}/>
           <ContactStation  position={STATION_POS.contact}  onActivate={()=>activateStation('contact')}  isActive={activeSection==='contact'}/>
+          <CertificationsStation position={STATION_POS.certifications} onActivate={()=>activateStation('certifications')} isActive={activeSection==='certifications'}/>
         </Suspense>
       </Canvas>
 
@@ -763,7 +834,13 @@ export default function GameScene() {
 
       {/* ── Nav Buttons ── */}
       <div style={{position:'absolute',top:24,right:22,display:'flex',flexDirection:'column',gap:6,alignItems:'flex-end',zIndex:10}}>
-        {navBtns.map(({id,color})=>{
+        {[
+          {id:'profile',color:'#4A90D9'},
+          {id:'projects',color:'#D4A843'},
+          {id:'skills',color:'#6AC46A'},
+          {id:'contact',color:'#D46A6A'},
+          {id:'certifications',color:'#B388FF'}
+        ].map(({id,color})=>{
           const act=activeSection===id;
           return (
             <button key={id}
@@ -782,11 +859,23 @@ export default function GameScene() {
         {isMobile?'Tap arrows · Drag to look · Tap station':'WASD · Move  ·  Mouse · Look  ·  Click station to explore'}
       </div>
 
-      {/* ── Sound button ── */}
-      <button style={{position:'fixed',bottom:20,right:20,zIndex:1000,background:'rgba(0,0,0,0.72)',border:`1px solid rgba(212,168,67,${soundEnabled?.5:.2})`,color:soundEnabled?'#D4A843':'rgba(255,255,255,0.2)',fontFamily:"'Oswald',sans-serif",fontSize:10,letterSpacing:'.3em',textTransform:'uppercase',padding:'7px 13px',cursor:'pointer',borderRadius:1,backdropFilter:'blur(4px)'}}
+      {/* ── Sound & Sensitivity buttons ── */}
+      <button style={{position:'fixed',bottom:20,right:20,zIndex:1000,background:'rgba(0,0,0,0.72)',border:`1px solid rgba(212,168,67,${soundEnabled ? 0.5 : 0.2})`,color:soundEnabled?'#D4A843':'rgba(255,255,255,0.2)',fontFamily:"'Oswald',sans-serif",fontSize:10,letterSpacing:'.3em',textTransform:'uppercase',padding:'7px 13px',cursor:'pointer',borderRadius:1,backdropFilter:'blur(4px)'}}
         onClick={()=>setSoundEnabled(!soundEnabled)} onMouseEnter={()=>audio.hover()}>
         {soundEnabled?'♪ ON':'♪ OFF'}
       </button>
+
+      <button style={{position:'fixed',bottom:56,right:20,zIndex:1000,background:'rgba(0,0,0,0.72)',border:`1px solid rgba(212,168,67,${highSensitivity ? 0.5 : 0.2})`,color:highSensitivity?'#D4A843':'rgba(255,255,255,0.2)',fontFamily:"'Oswald',sans-serif",fontSize:10,letterSpacing:'.3em',textTransform:'uppercase',padding:'7px 13px',cursor:'pointer',borderRadius:1,backdropFilter:'blur(4px)'}}
+        onClick={()=>{audio.click(); toggleSensitivity();}} onMouseEnter={()=>audio.hover()}>
+        {highSensitivity?'SENS MAX':'SENS LOW'}
+      </button>
+
+      {/* ── Panels ── */}
+      {activeSection==='profile'  && <Profile  onClose={closeSection}/>}
+      {activeSection==='projects' && <Projects onClose={closeSection}/>}
+      {activeSection==='skills'   && <Skills   onClose={closeSection}/>}
+      {activeSection==='contact'  && <Contact  onClose={closeSection}/>}
+      {activeSection==='certifications' && <Certifications onClose={closeSection}/>}
 
       {/* ── Back to Menu ── */}
       <button onClick={()=>{audio.click();gsap.to(wrapRef.current,{opacity:0,duration:.5,ease:'power2.in',onComplete:()=>useGameStore.setState({gameStarted:false,splashDone:true,activeSection:null})});}}
