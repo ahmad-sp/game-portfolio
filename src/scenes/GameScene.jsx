@@ -28,6 +28,10 @@ function CameraController({ mobileKeys, highSensitivity }) {
   const touch  = useRef({ active: false, lx: 0, ly: 0, dx: 0, dy: 0 });
   const curPos = useRef(new THREE.Vector3(0, 2, 10));
   const curLook= useRef({ x: 0, y: 0 });
+  const moveV  = useRef(new THREE.Vector3());
+  const fwdV   = useRef(new THREE.Vector3());
+  const rightV = useRef(new THREE.Vector3());
+  const upV    = useRef(new THREE.Vector3(0, 1, 0));
 
   useEffect(() => {
     const kd = (e) => { keys.current[e.code] = true; };
@@ -71,13 +75,34 @@ function CameraController({ mobileKeys, highSensitivity }) {
       return;
     }
     const k = { ...keys.current, ...mobileKeys };
-    const spd = 5, cl = (v, a, b) => Math.max(a, Math.min(b, v));
-    if (k['KeyW'] || k['ArrowUp'])    curPos.current.z -= spd * delta;
-    if (k['KeyS'] || k['ArrowDown'])  curPos.current.z += spd * delta;
-    if (k['KeyA'] || k['ArrowLeft'])  curPos.current.x -= spd * delta;
-    if (k['KeyD'] || k['ArrowRight']) curPos.current.x += spd * delta;
-    curPos.current.x = cl(curPos.current.x, -11, 11);
-    curPos.current.z = cl(curPos.current.z, -8, 14);
+    const spd = 9;
+    const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+    // Ground-plane "free flow" movement: move relative to camera look direction.
+    // Project forward/right onto XZ plane so motion stays level.
+    camera.getWorldDirection(fwdV.current);
+    fwdV.current.y = 0;
+    if (fwdV.current.lengthSq() < 1e-6) fwdV.current.set(0, 0, -1);
+    fwdV.current.normalize();
+    rightV.current.copy(fwdV.current).cross(upV.current).normalize();
+
+    moveV.current.set(0, 0, 0);
+    if (k['KeyW'] || k['ArrowUp']) moveV.current.add(fwdV.current);
+    if (k['KeyS'] || k['ArrowDown']) moveV.current.sub(fwdV.current);
+    if (k['KeyD'] || k['ArrowRight']) moveV.current.add(rightV.current);
+    if (k['KeyA'] || k['ArrowLeft']) moveV.current.sub(rightV.current);
+
+    if (moveV.current.lengthSq() > 0) {
+      moveV.current.normalize().multiplyScalar(spd * delta);
+      curPos.current.add(moveV.current);
+    }
+
+    // Boundary: keep camera inside playable city area
+    const B = { xMin: -70, xMax: 70, zMin: -55, zMax: 55 };
+    curPos.current.x = clamp(curPos.current.x, B.xMin, B.xMax);
+    curPos.current.z = clamp(curPos.current.z, B.zMin, B.zMax);
+
+    // Gentle head-bob
     curPos.current.y = 2 + Math.sin(state.clock.elapsedTime * 0.38) * 0.1;
     
     // Slow drift displacement

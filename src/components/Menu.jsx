@@ -160,6 +160,7 @@ export default function Menu() {
         fontFamily: "'Pricedown Bl', sans-serif",
         fontSize: 20, color: 'rgba(212,168,67,0.8)',
         textShadow: '2px 2px 0 rgba(0,0,0,0.8)',
+        textTransform: 'uppercase'
       }}>
         Ahmad S P • Portfolio
       </div>
@@ -262,7 +263,20 @@ export default function Menu() {
               }}
             >
               {isActive && (
-                <span style={{ marginRight: 10, fontSize: 14, opacity: 0.8 }}>▶</span>
+                <svg 
+                  viewBox="0 0 24 24" 
+                  style={{ 
+                    width: 16, height: 16, 
+                    marginRight: 12, 
+                    display: 'inline-block', 
+                    verticalAlign: 'bottom',
+                    filter: 'drop-shadow(0 2px 2px rgba(0,0,0,0.4))',
+                    marginBottom: 2
+                  }} 
+                  fill="currentColor"
+                >
+                  <path d="M6 4l12 8-12 8z" />
+                </svg>
               )}
               {item.label}
             </button>
