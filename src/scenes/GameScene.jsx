@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect, Suspense, useCallback, useMemo } from 'react';
+import { useRef, useState, useEffect, Suspense, useCallback, useMemo, useLayoutEffect } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Environment, Float, Html } from '@react-three/drei';
 import { gsap } from 'gsap';
@@ -248,9 +248,6 @@ function CameraController({ mobileJoystick, highSensitivity, activeSection }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // PROFILE — Holographic ID terminal slab with scan animation
 // ─────────────────────────────────────────────────────────────────────────────
-// ─────────────────────────────────────────────────────────────────────────────
-// PROFILE — Shop Storefront Diorama with Avatar
-// ─────────────────────────────────────────────────────────────────────────────
 function ProfileStation({ position, rotation, onActivate, isActive }) {
   const root    = useRef(); 
   const glowRef = useRef(); 
@@ -270,7 +267,7 @@ function ProfileStation({ position, rotation, onActivate, isActive }) {
   const ol = () => { setHov(false); document.body.style.cursor='auto';   if(root.current) gsap.to(root.current.scale,{x:1,y:1,z:1,duration:.3}); };
 
   return (
-    <group ref={root} position={position} rotation={rotation} onPointerEnter={oe} onPointerLeave={ol} onClick={()=>{audio.click();onActivate();}}>
+    <group ref={root} position={position} onPointerEnter={oe} onPointerLeave={ol} onClick={()=>{audio.click();onActivate();}}>
       {/* Grounding Shadow Plane */}
       <mesh position={[0,-1.0,0]} rotation={[-Math.PI/2,0,0]}><circleGeometry args={[2.5, 32]}/><meshBasicMaterial color="#000" transparent opacity={0.5}/></mesh>
 
@@ -348,7 +345,7 @@ function ProfileStation({ position, rotation, onActivate, isActive }) {
         {/* Roof Glowing Sign Geometry & Text */}
         <mesh position={[0, 2.5, 1.6]} ref={glowRef}>
           <boxGeometry args={[2.0, 0.6, 0.1]}/>
-          <meshBasicMaterial color={C} transparent opacity={0.2}/>
+          <meshBasicMaterial color={C} transparent depthWrite={false} opacity={0.2}/>
         </mesh>
         <Html zIndexRange={[100, 0]} position={[0, 2.5, 1.7]} center transform style={{pointerEvents:'none',fontFamily:"'Oswald'",fontSize:20,fontWeight:900,letterSpacing:'.3em',color:'#fff',textShadow:`0 0 16px ${C}`}}>PROFILE</Html>
       </group>
@@ -375,7 +372,7 @@ function ProjectsStation({ position, rotation, onActivate, isActive }) {
   const ol=()=>{setHov(false);document.body.style.cursor='auto';if(root.current) gsap.to(root.current.scale,{x:1,y:1,z:1,duration:.3});};
 
   return (
-    <group ref={root} position={position} rotation={rotation} onPointerEnter={oe} onPointerLeave={ol} onClick={()=>{audio.click();onActivate();}}>
+    <group frustumCulled={false} ref={root} position={position} rotation={rotation} onPointerEnter={oe} onPointerLeave={ol} onClick={()=>{audio.click();onActivate();}}>
       {/* Grounding Shadow Plane */}
       <mesh position={[0,-0.9,0]} rotation={[-Math.PI/2,0,0]}><circleGeometry args={[2.8, 32]}/><meshBasicMaterial color="#000" transparent opacity={0.6}/></mesh>
 
@@ -431,7 +428,7 @@ function ProjectsStation({ position, rotation, onActivate, isActive }) {
       {/* Universal 3D Branding Sign */}
 <mesh position={[0, 2.5, 0]} rotation={[0, 0.78, 0]}> {/* <--- Changed: Added rotation */}
         <boxGeometry args={[3.2, 0.8, 0.1]}/>
-        <meshBasicMaterial color={C} transparent opacity={0.15}/>
+        <meshBasicMaterial color={C} transparent depthWrite={false} opacity={0.15}/>
       </mesh>
       
       <Html 
@@ -457,6 +454,24 @@ function SkillsStation({ position, rotation, onActivate, isActive }) {
   const [hov,setHov]=useState(false);
   const C='#eab308'; // Traffic Yellow
   
+  // Traffic Light cycle state: 0=Red, 1=Green, 2=Yellow
+  const [lightState, setLightState] = useState(0);
+
+  useEffect(() => {
+    let timer;
+    const cycle = () => {
+      setLightState((prev) => {
+        let next = (prev + 1) % 3;
+        // Red lasts 4s, Green lasts 4s, Yellow lasts 1.5s
+        let duration = next === 2 ? 1500 : 4000;
+        timer = setTimeout(cycle, duration);
+        return next;
+      });
+    };
+    timer = setTimeout(cycle, 4000);
+    return () => clearTimeout(timer);
+  }, []);
+
   useFrame((state)=>{
     const t=state.clock.elapsedTime;
     if(!root.current) return;
@@ -467,58 +482,57 @@ function SkillsStation({ position, rotation, onActivate, isActive }) {
   const ol=()=>{setHov(false);document.body.style.cursor='auto';if(root.current) gsap.to(root.current.scale,{x:1,y:1,z:1,duration:.3});};
 
   return (
-    <group ref={root} position={position} rotation={rotation} onPointerEnter={oe} onPointerLeave={ol} onClick={()=>{audio.click();onActivate();}}>
-      {/* Grounding Base */}
-      <mesh position={[0,-1.0,0]} rotation={[-Math.PI/2,0,0]}><circleGeometry args={[2.5, 32]}/><meshBasicMaterial color="#000" transparent opacity={0.6}/></mesh>
+    <group frustumCulled={false} ref={root} position={position} rotation={rotation} onPointerEnter={oe} onPointerLeave={ol} onClick={()=>{audio.click();onActivate();}}>
+      {/* Target/Click Hotspot Base */}
+      <mesh position={[0,-1.0,0]} rotation={[-Math.PI/2,0,0]}><circleGeometry args={[3.0, 32]}/><meshBasicMaterial color="#000" transparent opacity={0.6}/></mesh>
       <mesh position={[0,-0.8,0]}><cylinderGeometry args={[1.4, 1.6, 0.4, 8]}/><meshLambertMaterial color="#1e293b"/></mesh>
-
-      {/* Tall Central Pillar */}
-      <mesh position={[0, 0.6, 0]}><cylinderGeometry args={[0.3, 0.4, 2.8, 8]}/><meshLambertMaterial color="#334155"/></mesh>
-
-      {/* Control Cabin */}
-      <group position={[0, 2.6, 0]}>
-        {/* Cabin Base */}
-        <mesh position={[0, -0.6, 0]}><cylinderGeometry args={[1.5, 0.8, 0.4, 8]}/><meshLambertMaterial color="#0f172a"/></mesh>
-        
-        {/* Glass Windows */}
-        <mesh position={[0, 0, 0]}><cylinderGeometry args={[1.5, 1.5, 1.0, 8]}/><meshBasicMaterial color="#38bdf8" transparent opacity={(hov||isActive)?0.5:0.2}/></mesh>
-        
-        {/* Cabin Roof */}
-        <mesh position={[0, 0.6, 0]}><cylinderGeometry args={[1.5, 1.6, 0.2, 8]}/><meshLambertMaterial color="#1e293b"/></mesh>
-        
-        {/* Antennas / Gizmos */}
-        <mesh position={[0, 1.1, 0]}><cylinderGeometry args={[0.05, 0.05, 1.0]}/><meshLambertMaterial color="#fff"/></mesh>
-        <mesh position={[0, 1.6, 0]}><sphereGeometry args={[0.15]}/><meshBasicMaterial color="#ef4444"/></mesh>
+      
+      {/* Main Vertical Signal Pole */}
+      <mesh position={[1.0, 1.5, 0]}><cylinderGeometry args={[0.2, 0.25, 5.0, 12]}/><meshLambertMaterial color="#475569"/></mesh>
+      {/* Pole Base Flange */}
+      <mesh position={[1.0, -0.9, 0]}><cylinderGeometry args={[0.4, 0.5, 0.3, 12]}/><meshLambertMaterial color="#334155"/></mesh>
+      
+      {/* Traffic Control Sidewalk Cabinet (Grey electrical box) */}
+      <group position={[2.5, -0.4, -0.8]}>
+        <mesh><boxGeometry args={[1.0, 1.2, 0.8]}/><meshLambertMaterial color="#94a3b8"/></mesh>
+        <mesh position={[0, 0, 0.41]}><boxGeometry args={[0.8, 1.0, 0.05]}/><meshLambertMaterial color="#cbd5e1"/></mesh>
       </group>
 
-      {/* Traffic Light Arrays */}
-      {[-1.8, 1.8].map((x) => (
-        <group key={x} position={[x, 2.6, 0]}>
-          <mesh position={[0, 0, 0]}><boxGeometry args={[0.4, 1.2, 0.4]}/><meshLambertMaterial color="#000"/></mesh>
-          <mesh position={[0, 0.4, 0.21]}><circleGeometry args={[0.12, 16]}/><meshBasicMaterial color="#ef4444" emissive="#ef4444" emissiveIntensity={(hov||isActive)?1.2:0.2}/></mesh>
-          <mesh position={[0, 0.0, 0.21]}><circleGeometry args={[0.12, 16]}/><meshBasicMaterial color="#eab308" emissive="#eab308" emissiveIntensity={(hov||isActive)?1.2:0.2}/></mesh>
-          <mesh position={[0, -0.4, 0.21]}><circleGeometry args={[0.12, 16]}/><meshBasicMaterial color="#22c55e" emissive="#22c55e" emissiveIntensity={(hov||isActive)?1.2:0.2}/></mesh>
+      {/* Tall horizontal Boom Arm reaching over intersection */}
+      <mesh position={[-2.5, 3.8, 0]} rotation={[0, 0, Math.PI/2]}><cylinderGeometry args={[0.15, 0.15, 7.0, 8]}/><meshLambertMaterial color="#475569"/></mesh>
+      {/* Diagonal Support Truss */}
+      <mesh position={[-1.0, 2.8, 0]} rotation={[0, 0, -Math.PI/4]}><cylinderGeometry args={[0.08, 0.08, 3.0, 8]}/><meshLambertMaterial color="#475569"/></mesh>
+
+      {/* Hanging Traffic Signals (Yellow housing) */}
+      {[-0.5, -2.5, -4.5].map((x, idx) => (
+        <group key={idx} position={[x, 2.8, 0]}>
+          <mesh position={[0, 0, 0]}><boxGeometry args={[0.6, 1.6, 0.6]}/><meshLambertMaterial color="#eab308"/></mesh>
+          <mesh position={[0, 0, 0.1]}><boxGeometry args={[0.5, 1.5, 0.55]}/><meshLambertMaterial color="#111"/></mesh>
+          
+          {/* Lenses */}
+          <mesh position={[0, 0.45, 0.4]}>
+            <circleGeometry args={[0.18, 16]}/>
+            <meshBasicMaterial color={lightState===0 ? "#ef4444" : "#451a1a"} emissive="#ef4444" emissiveIntensity={lightState===0 ? ((hov||isActive)?1.8:1.2) : 0.0}/>
+          </mesh>
+          <mesh position={[0, 0.0, 0.4]}>
+            <circleGeometry args={[0.18, 16]}/>
+            <meshBasicMaterial color={lightState===2 ? "#f59e0b" : "#4a2d04"} emissive="#f59e0b" emissiveIntensity={lightState===2 ? ((hov||isActive)?1.8:1.2) : 0.0}/>
+          </mesh>
+          <mesh position={[0, -0.45, 0.4]}>
+            <circleGeometry args={[0.18, 16]}/>
+            <meshBasicMaterial color={lightState===1 ? "#22c55e" : "#093816"} emissive="#22c55e" emissiveIntensity={lightState===1 ? ((hov||isActive)?1.8:1.2) : 0.0}/>
+          </mesh>
         </group>
       ))}
 
       <mesh position={[0,-1.98,0]} rotation={[-Math.PI/2,0,0]}><circleGeometry args={[2.0,32]}/><meshBasicMaterial color={C} transparent opacity={(hov||isActive) ? 0.2 : 0.05}/></mesh>
 
-      {/* Universal 3D Branding Sign */}
-      <mesh position={[0, 5.0, 0]} rotation={[0, 0.26, 0]}>
+      {/* Universal 3D Branding Sign attached to the pole */}
+      <mesh position={[1.5, 4.6, 0]} rotation={[0, 0.26, 0]}>
         <boxGeometry args={[2.8, 0.8, 0.1]}/>
         <meshBasicMaterial color={C} transparent opacity={0.15}/>
       </mesh>
-      
-      <Html 
-        zIndexRange={[100, 0]} 
-        position={[0, 5.0, 0.1]} 
-        rotation={[0, -1, 0]} 
-        center 
-        transform 
-        style={{pointerEvents:'none',fontFamily:"'Oswald'",fontSize:28,fontWeight:900,letterSpacing:'.3em',color:'#fff',textShadow:`0 0 16px ${C}`}}
-      >
-        SKILLS
-      </Html>
+      <Html zIndexRange={[100, 0]} position={[1.5, 4.6, 0.1]} rotation={[0, -1, 0]} center transform style={{pointerEvents:'none',fontFamily:"'Oswald'",fontSize:28,fontWeight:900,letterSpacing:'.3em',color:'#fff',textShadow:`0 0 16px ${C}`}}>SKILLS</Html>
     </group>
   );
 }
@@ -540,7 +554,7 @@ function ContactStation({ position, rotation, onActivate, isActive }) {
   const ol=()=>{setHov(false);document.body.style.cursor='auto';if(root.current) gsap.to(root.current.scale,{x:1,y:1,z:1,duration:.3});};
 
   return (
-    <group ref={root} position={position} rotation={rotation} onPointerEnter={oe} onPointerLeave={ol} onClick={()=>{audio.click();onActivate();}}>
+    <group frustumCulled={false} ref={root} position={position} rotation={rotation} onPointerEnter={oe} onPointerLeave={ol} onClick={()=>{audio.click();onActivate();}}>
       {/* Grounding Shadow Plane */}
       <mesh position={[0,-1.3,0]} rotation={[-Math.PI/2,0,0]}><circleGeometry args={[1.8, 32]}/><meshBasicMaterial color="#000" transparent opacity={0.6}/></mesh>
 
@@ -564,7 +578,7 @@ function ContactStation({ position, rotation, onActivate, isActive }) {
         {/* Translucent Glass Panes */}
         <mesh position={[0, 0.3, 0]}>
           <boxGeometry args={[1.25, 2.1, 1.25]}/>
-          <meshBasicMaterial color="#38bdf8" transparent opacity={(hov||isActive)?0.3:0.15}/>
+          <meshBasicMaterial color="#38bdf8" transparent depthWrite={false} opacity={(hov||isActive)?0.3:0.15}/>
         </mesh>
 
         {/* Booth Roof */}
@@ -580,7 +594,7 @@ function ContactStation({ position, rotation, onActivate, isActive }) {
         {/* Universal 3D Branding Sign (Contact) placed atop the Booth */}
         <mesh position={[0, 2.8, 0]}>
           <boxGeometry args={[3.2, 0.8, 0.1]}/>
-          <meshBasicMaterial color={C} transparent opacity={0.15}/>
+          <meshBasicMaterial color={C} transparent depthWrite={false} opacity={0.15}/>
         </mesh>
         <Html zIndexRange={[100, 0]} position={[0, 2.8, 0.1]} center transform style={{pointerEvents:'none',fontFamily:"'Oswald'",fontSize:28,fontWeight:900,letterSpacing:'.3em',color:'#fff',textShadow:`0 0 16px ${C}`}}>CONTACT</Html>
       </group>
@@ -597,7 +611,7 @@ function CertificationsStation({ position, rotation, onActivate, isActive }) {
   const root = useRef();
   const [hov, setHov] = useState(false);
   const C = '#B388FF';
-  
+
   useFrame((state) => {
     if (!root.current) return;
     root.current.position.y = position[1] + Math.sin(state.clock.elapsedTime * 0.4 + 2) * 0.05;
@@ -607,7 +621,7 @@ function CertificationsStation({ position, rotation, onActivate, isActive }) {
   const ol = () => { setHov(false); document.body.style.cursor='auto'; if(root.current) gsap.to(root.current.scale,{x:1,y:1,z:1,duration:.3}); };
 
   return (
-    <group ref={root} position={position} rotation={rotation} onPointerEnter={oe} onPointerLeave={ol} onClick={()=>{audio.click();onActivate();}}>
+    <group frustumCulled={false} ref={root} position={position} rotation={rotation} onPointerEnter={oe} onPointerLeave={ol} onClick={()=>{audio.click();onActivate();}}>
       {/* Grounding Shadow Plane */}
       <mesh position={[0,-1.0,0]} rotation={[-Math.PI/2,0,0]}><circleGeometry args={[3.5, 32]}/><meshBasicMaterial color="#000" transparent opacity={0.6}/></mesh>
 
@@ -829,76 +843,126 @@ function GameEnvironment() {
       {/* Main Road */}
       <mesh rotation={[-Math.PI/2,0,0]} position={[0,0.01,0]} receiveShadow>
         <planeGeometry args={[260, 14]}/>
-        <meshStandardMaterial color="#4a5568" roughness={0.8} metalness={0.1}/>
+        <meshStandardMaterial color="#334155" roughness={0.8} metalness={0.1}/>
       </mesh>
 
       {/* Perpendicular Intersection Junction (strictly for Skills Station) */}
       <mesh rotation={[-Math.PI/2,0,0]} position={[25,0.012,0]} receiveShadow>
         <planeGeometry args={[14, 120]}/>
-        <meshStandardMaterial color="#4a5568" roughness={0.8} metalness={0.1}/>
+        <meshStandardMaterial color="#334155" roughness={0.8} metalness={0.1}/>
       </mesh>
+
+      {/* Intersection Zebra Crossing / Markings */}
+      <group position={[25, 0.015, 0]}>
+        {/* Intersection center Box (Blank) */}
+        <mesh rotation={[-Math.PI/2,0,0]}>
+          <planeGeometry args={[14, 14]}/>
+          <meshStandardMaterial color="#334155" roughness={0.8} metalness={0.1}/>
+        </mesh>
+        
+        {/* Zebra Stripes (North/South crossings) */}
+        {[-5.5, -3.5, -1.5, 0.5, 2.5, 4.5, 6.5].map((ox) => (
+          <mesh key={`ns-${ox}`} rotation={[-Math.PI/2,0,0]} position={[ox, 0.005, 7.5]}>
+            <planeGeometry args={[0.5, 2.0]}/>
+            <meshBasicMaterial color="#cbd5e1" transparent opacity={0.8} polygonOffset polygonOffsetFactor={-1} polygonOffsetUnits={-1}/>
+          </mesh>
+        ))}
+        {[-5.5, -3.5, -1.5, 0.5, 2.5, 4.5, 6.5].map((ox) => (
+          <mesh key={`ns2-${ox}`} rotation={[-Math.PI/2,0,0]} position={[ox, 0.005, -7.5]}>
+            <planeGeometry args={[0.5, 2.0]}/>
+            <meshBasicMaterial color="#cbd5e1" transparent opacity={0.8} polygonOffset polygonOffsetFactor={-1} polygonOffsetUnits={-1}/>
+          </mesh>
+        ))}
+
+        {/* Zebra Stripes (East/West crossings) */}
+        {[-5.5, -3.5, -1.5, 0.5, 2.5, 4.5, 6.5].map((oz) => (
+          <mesh key={`ew-${oz}`} rotation={[-Math.PI/2,0,Math.PI/2]} position={[-7.5, 0.005, oz]}>
+            <planeGeometry args={[0.5, 2.0]}/>
+            <meshBasicMaterial color="#cbd5e1" transparent opacity={0.8} polygonOffset polygonOffsetFactor={-1} polygonOffsetUnits={-1}/>
+          </mesh>
+        ))}
+        {[-5.5, -3.5, -1.5, 0.5, 2.5, 4.5, 6.5].map((oz) => (
+          <mesh key={`ew2-${oz}`} rotation={[-Math.PI/2,0,Math.PI/2]} position={[7.5, 0.005, oz]}>
+            <planeGeometry args={[0.5, 2.0]}/>
+            <meshBasicMaterial color="#cbd5e1" transparent opacity={0.8} polygonOffset polygonOffsetFactor={-1} polygonOffsetUnits={-1}/>
+          </mesh>
+        ))}
+
+        {/* Solid Stop Lines */}
+        <mesh rotation={[-Math.PI/2,0,0]} position={[0, 0.005, 9.5]}><planeGeometry args={[14, 0.4]}/><meshBasicMaterial color="#cbd5e1" transparent opacity={0.8} polygonOffset polygonOffsetFactor={-1} polygonOffsetUnits={-1}/></mesh>
+        <mesh rotation={[-Math.PI/2,0,0]} position={[0, 0.005, -9.5]}><planeGeometry args={[14, 0.4]}/><meshBasicMaterial color="#cbd5e1" transparent opacity={0.8} polygonOffset polygonOffsetFactor={-1} polygonOffsetUnits={-1}/></mesh>
+        <mesh rotation={[-Math.PI/2,0,0]} position={[9.5, 0.005, 0]}><planeGeometry args={[0.4, 14]}/><meshBasicMaterial color="#cbd5e1" transparent opacity={0.8} polygonOffset polygonOffsetFactor={-1} polygonOffsetUnits={-1}/></mesh>
+        <mesh rotation={[-Math.PI/2,0,0]} position={[-9.5, 0.005, 0]}><planeGeometry args={[0.4, 14]}/><meshBasicMaterial color="#cbd5e1" transparent opacity={0.8} polygonOffset polygonOffsetFactor={-1} polygonOffsetUnits={-1}/></mesh>
+      </group>
 
       {/* Faint tire marks / oil stains */}
       {[-2.5, 2.5].map((z,i) => (
-        <mesh key={`tire-${i}`} rotation={[-Math.PI/2,0,0]} position={[0, 0.015, z]}>
+        <mesh key={`tire-${i}`} rotation={[-Math.PI/2,0,0]} position={[0, 0.02, z]}>
           <planeGeometry args={[180, 2]}/>
-          <meshBasicMaterial color="#050608" transparent opacity={0.15}/>
+          <meshBasicMaterial color="#050608" transparent opacity={0.15} polygonOffset polygonOffsetFactor={-1} polygonOffsetUnits={-1}/>
         </mesh>
       ))}
 
-      {/* Sidewalks with depth (Curbs) */}
+      {/* Sidewalks with depth (Curbs) - Split to accommodate the Junction at x=25 */}
       {[-7.5, 7.5].map((z,i) => (
         <group key={`sw-${i}`} position={[0, 0.15, z]}>
-          {/* Top walkway */}
-          <mesh rotation={[-Math.PI/2,0,0]} receiveShadow>
-            <planeGeometry args={[180, 2]}/>
-            <meshStandardMaterial color="#2d3748" roughness={0.9}/>
-          </mesh>
-          {/* Vertical curb edge */}
-          <mesh position={[0, -0.075, z>0 ? -1 : 1]}>
-            <boxGeometry args={[180, 0.15, 0.05]}/>
-            <meshStandardMaterial color="#1a202c" roughness={0.8}/>
-          </mesh>
-          {/* Lightweight Guard Rails (Fences) for mid-layer depth */}
-          <mesh position={[0, 0.8, z>0 ? 0.9 : -0.9]}>
-            <boxGeometry args={[180, 0.1, 0.05]} />
-            <meshBasicMaterial color="#64748b" />
-          </mesh>
-          <mesh position={[0, 0.4, z>0 ? 0.9 : -0.9]}>
-            <boxGeometry args={[180, 0.05, 0.05]} />
-            <meshBasicMaterial color="#64748b" />
-          </mesh>
-          {Array.from({length: 36}).map((_, j) => (
-            <mesh key={`post-${j}`} position={[-85 + j*5, 0.4, z>0 ? 0.9 : -0.9]}>
-              <boxGeometry args={[0.08, 0.8, 0.08]} />
-              <meshBasicMaterial color="#475569" />
-            </mesh>
-          ))}
+          
+          {/* LEFT SIDEWALK (x=-90 to x=18) Width 108, Center -36 */}
+          <group position={[-36, 0, 0]}>
+            <mesh rotation={[-Math.PI/2,0,0]} receiveShadow><planeGeometry args={[108, 2]}/><meshStandardMaterial color="#2d3748" roughness={0.9}/></mesh>
+            <mesh position={[0, -0.075, z>0 ? -1 : 1]}><boxGeometry args={[108, 0.15, 0.05]}/><meshStandardMaterial color="#1a202c" roughness={0.8}/></mesh>
+            <mesh position={[0, 0.8, z>0 ? 0.9 : -0.9]}><boxGeometry args={[108, 0.1, 0.05]} /><meshBasicMaterial color="#64748b" /></mesh>
+            <mesh position={[0, 0.4, z>0 ? 0.9 : -0.9]}><boxGeometry args={[108, 0.05, 0.05]} /><meshBasicMaterial color="#64748b" /></mesh>
+          </group>
+
+          {/* RIGHT SIDEWALK (x=32 to x=90) Width 58, Center 61 */}
+          <group position={[61, 0, 0]}>
+            <mesh rotation={[-Math.PI/2,0,0]} receiveShadow><planeGeometry args={[58, 2]}/><meshStandardMaterial color="#2d3748" roughness={0.9}/></mesh>
+            <mesh position={[0, -0.075, z>0 ? -1 : 1]}><boxGeometry args={[58, 0.15, 0.05]}/><meshStandardMaterial color="#1a202c" roughness={0.8}/></mesh>
+            <mesh position={[0, 0.8, z>0 ? 0.9 : -0.9]}><boxGeometry args={[58, 0.1, 0.05]} /><meshBasicMaterial color="#64748b" /></mesh>
+            <mesh position={[0, 0.4, z>0 ? 0.9 : -0.9]}><boxGeometry args={[58, 0.05, 0.05]} /><meshBasicMaterial color="#64748b" /></mesh>
+          </group>
+
+          {/* Fence Posts - Skipping the intersection */}
+          {Array.from({length: 36}).map((_, j) => {
+            const px = -85 + j*5;
+            if (px > 17 && px < 33) return null; // Hole for intersection
+            return (
+              <mesh key={`post-${j}`} position={[px, 0.4, z>0 ? 0.9 : -0.9]}>
+                <boxGeometry args={[0.08, 0.8, 0.08]} />
+                <meshBasicMaterial color="#475569" />
+              </mesh>
+            );
+          })}
         </group>
       ))}
 
       {/* Solid outer white lines */}
       {[-5.8, 5.8].map((z,i) => (
-        <mesh key={`solid-${i}`} rotation={[-Math.PI/2,0,0]} position={[0,0.02,z]}>
-          <planeGeometry args={[180, 0.1]}/>
-          <meshBasicMaterial color="#94a3b8" transparent opacity={0.6}/>
-        </mesh>
+        <group key={`solid-${i}`} position={[0, 0.03, z]}>
+          <mesh rotation={[-Math.PI/2,0,0]} position={[-36, 0, 0]}><planeGeometry args={[108, 0.1]}/><meshBasicMaterial color="#94a3b8" transparent opacity={0.6} polygonOffset polygonOffsetFactor={-1.5} polygonOffsetUnits={-2}/></mesh>
+          <mesh rotation={[-Math.PI/2,0,0]} position={[61, 0, 0]}><planeGeometry args={[58, 0.1]}/><meshBasicMaterial color="#94a3b8" transparent opacity={0.6} polygonOffset polygonOffsetFactor={-1.5} polygonOffsetUnits={-2}/></mesh>
+        </group>
       ))}
 
-      {/* Thick center dashes */}
-      {Array.from({length: 30}).map((_, i) => (
-        <mesh key={`dash-${i}`} rotation={[-Math.PI/2,0,0]} position={[-42 + i*3, 0.02, 0]}>
-          <planeGeometry args={[0.8, 0.15]}/>
-          <meshBasicMaterial color="#cbd5e1" transparent opacity={0.5}/>
-        </mesh>
-      ))}
+      {/* Thick center dashes, skipping the intersection at x=25 */}
+      {Array.from({length: 30}).map((_, i) => {
+        const xPos = -42 + i*3;
+        if (xPos > 18 && xPos < 32) return null; // Skip intersection center
+        return (
+          <mesh key={`dash-${i}`} rotation={[-Math.PI/2,0,0]} position={[xPos, 0.03, 0]}>
+            <planeGeometry args={[0.8, 0.15]}/>
+            <meshBasicMaterial color="#cbd5e1" transparent opacity={0.5} polygonOffset polygonOffsetFactor={-1.5} polygonOffsetUnits={-2}/>
+          </mesh>
+        );
+      })}
 
       <WindyTrees data={trees} />
       <StreetProps data={props} />
 
       {/* Multi-layered Skyscrapers - Standard basic colors to remove lighting overhead */}
       {buildings.map((b, i) => (
-        <group key={`bldg-${i}`} position={[b.x, 0, b.z]}>
+        <group frustumCulled={false} key={`bldg-${i}`} position={[b.x, 0, b.z]}>
           <mesh position={[0, b.height/2, 0]}>
             <boxGeometry args={[b.width, b.height, b.depth]}/>
             <meshBasicMaterial color={b.col} map={windowTex} />
@@ -1085,14 +1149,14 @@ function MobileControls({ onJoystick, hidden }) {
 // MAIN SCENE
 // ─────────────────────────────────────────────────────────────────────────────
 const STATION_POS = {
-  skills:  [25, -0.5, 17],   
+  skills:  [32, -0.5, 17],   
   profile: [0, -1, -12],    
   projects: [-17, -0.9, 3.0],    
   contact:  [15, -0.5, -10],   
   certifications: [40, -1, -12.0], 
 };
 const STATION_ROT = {
-  skills:  0.2,
+  skills:  0,
   profile: 0,
   projects: -0.15,
   contact:  0,
@@ -1177,7 +1241,7 @@ export default function GameScene() {
     <div ref={wrapRef} style={{position:'fixed',inset:0,background:'#03050a'}}>
 
       {/* ── 3D Canvas ── */}
-      <Canvas camera={{position:[0,2,10],fov:62}} shadows
+      <Canvas camera={{position:[0,2,10],fov:62, near:0.1, far:400}} shadows
         gl={{antialias:!isMobile,toneMapping:THREE.ACESFilmicToneMapping,toneMappingExposure:.95}}
         style={{width:'100%',height:'100%'}}>
         <Suspense fallback={null}>
