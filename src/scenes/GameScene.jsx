@@ -66,6 +66,10 @@ const ENV_PRESET = {
       pedestrianRim: '#ffb980',
       carHead: '#fff4c2',
       carTail: '#ff6b6b',
+      shopGlow: '#ffc56a',
+      transitGlass: '#97d8ff',
+      concrete: '#8b98ab',
+      adAccent: '#ff8f5e',
       stationLights: [
         { color: '#5ca7f2', intensity: 1.45, position: [-9, 3, -1] },
         { color: '#e8b85a', intensity: 1.55, position: [-3, 3, 2] },
@@ -88,7 +92,8 @@ const ENV_PRESET = {
     trafficBob: 0.02,
     lampFlicker: 0.16,
     windowFlickerSwing: 0.14,
-    signalPulse: 0.35
+    signalPulse: 0.35,
+    signPulse: 0.18
   },
   quality: {
     desktop: {
@@ -96,6 +101,8 @@ const ENV_PRESET = {
       pedestrianCount: 4,
       particleCount: 110,
       wireCount: 4,
+      parkedCars: 5,
+      storefronts: 8,
       haze: true,
       updateDivisor: 1
     },
@@ -104,6 +111,8 @@ const ENV_PRESET = {
       pedestrianCount: 2,
       particleCount: 56,
       wireCount: 3,
+      parkedCars: 3,
+      storefronts: 5,
       haze: false,
       updateDivisor: 2
     }
@@ -1002,10 +1011,10 @@ function PedestrianWalker({ walker, motion, palette }) {
 
 function PedestrianHints({ profile, palette, motion }) {
   const routes = useMemo(() => ([
-    { from: -84, to: -46, z: 8.85, phase: 0.2 },
-    { from: -42, to: -82, z: -8.85, phase: 1.1 },
-    { from: 38, to: 82, z: 8.85, phase: 2.2 },
-    { from: 80, to: 40, z: -8.85, phase: 3.3 }
+    { from: -84, to: -50, z: 7.35, phase: 0.2 },
+    { from: -40, to: -82, z: -7.35, phase: 1.1 },
+    { from: 42, to: 78, z: 7.35, phase: 2.2 },
+    { from: 82, to: 46, z: -7.35, phase: 3.3 }
   ]), []);
 
   const routeIndexes = profile.pedestrianCount <= 2 ? [0, 2] : [0, 1, 2, 3];
@@ -1116,6 +1125,304 @@ function AtmosphericFX({ profile, palette, motion }) {
         </bufferGeometry>
         <pointsMaterial color={palette.dust} size={0.22} transparent opacity={0.38} depthWrite={false}/>
       </points>
+    </>
+  );
+}
+
+function ParkedCar({ position, rotation, color, palette, scale = 1.18 }) {
+  return (
+    <group frustumCulled={false} position={position} rotation={rotation} scale={scale}>
+      <mesh position={[0, 0.24, 0]}>
+        <boxGeometry args={[1.9, 0.42, 0.96]}/>
+        <meshStandardMaterial color={color} roughness={0.76}/>
+      </mesh>
+      <mesh position={[0.18, 0.5, 0]}>
+        <boxGeometry args={[0.98, 0.3, 0.78]}/>
+        <meshStandardMaterial color="#d9e2ec" roughness={0.35}/>
+      </mesh>
+      {[-0.5, 0.5].map((z) => (
+        <group key={z}>
+          <mesh position={[-0.58, 0.03, z]} rotation={[-Math.PI/2, 0, 0]}>
+            <cylinderGeometry args={[0.17, 0.17, 0.16, 10]}/>
+            <meshStandardMaterial color="#09090b" roughness={0.95}/>
+          </mesh>
+          <mesh position={[0.58, 0.03, z]} rotation={[-Math.PI/2, 0, 0]}>
+            <cylinderGeometry args={[0.17, 0.17, 0.16, 10]}/>
+            <meshStandardMaterial color="#09090b" roughness={0.95}/>
+          </mesh>
+        </group>
+      ))}
+      <mesh position={[0.99, 0.24, 0.24]}>
+        <boxGeometry args={[0.08, 0.1, 0.14]}/>
+        <meshLambertMaterial color={palette.carHead} emissive={palette.carHead} emissiveIntensity={0.25}/>
+      </mesh>
+      <mesh position={[0.99, 0.24, -0.24]}>
+        <boxGeometry args={[0.08, 0.1, 0.14]}/>
+        <meshLambertMaterial color={palette.carHead} emissive={palette.carHead} emissiveIntensity={0.25}/>
+      </mesh>
+      <mesh position={[-0.99, 0.24, 0.24]}>
+        <boxGeometry args={[0.07, 0.1, 0.14]}/>
+        <meshLambertMaterial color={palette.carTail} emissive={palette.carTail} emissiveIntensity={0.15}/>
+      </mesh>
+      <mesh position={[-0.99, 0.24, -0.24]}>
+        <boxGeometry args={[0.07, 0.1, 0.14]}/>
+        <meshLambertMaterial color={palette.carTail} emissive={palette.carTail} emissiveIntensity={0.15}/>
+      </mesh>
+    </group>
+  );
+}
+
+function ParkedCars({ profile, palette }) {
+  const cars = useMemo(() => ([
+    { position: [-64, 0.02, 10.35], rotation: [0, Math.PI, 0], color: palette.carColors[1], scale: 1.14 },
+    { position: [-46, 0.02, -10.35], rotation: [0, 0, 0], color: palette.carColors[4], scale: 1.1 },
+    { position: [54, 0.02, 10.35], rotation: [0, Math.PI, 0], color: palette.carColors[0], scale: 1.18 },
+    { position: [70, 0.02, -10.35], rotation: [0, 0, 0], color: palette.carColors[3], scale: 1.16 },
+    { position: [86, 0.02, 10.35], rotation: [0, Math.PI, 0], color: palette.carColors[5], scale: 1.12 }
+  ]).slice(0, profile.parkedCars), [palette.carColors, profile.parkedCars]);
+
+  return <>{cars.map((car, i) => (
+    <ParkedCar key={`parked-${i}`} {...car} palette={palette}/>
+  ))}</>;
+}
+
+function CityStorefronts({ profile, palette, motion }) {
+  const signRefs = useRef([]);
+  const storefronts = useMemo(() => ([
+    { x: -82, z: 12.2, width: 11, color: '#e8b85a', label: 0, awning: '#5f4330', height: 4.7 },
+    { x: -66, z: 12.2, width: 9.5, color: '#79d07a', label: 1, awning: '#244133', height: 4.3 },
+    { x: -51, z: 12.2, width: 10.5, color: '#5ca7f2', label: 2, awning: '#2a3f58', height: 4.6 },
+    { x: 50, z: 12.2, width: 9.5, color: '#df7b7b', label: 3, awning: '#512f34', height: 4.4 },
+    { x: 66, z: 12.2, width: 11, color: '#bf9bff', label: 4, awning: '#3e3558', height: 4.9 },
+    { x: 82, z: 12.2, width: 10, color: '#e8b85a', label: 5, awning: '#57452f', height: 4.5 },
+    { x: -78, z: -12.2, width: 10.5, color: '#79d07a', label: 6, awning: '#284032', height: 4.5 },
+    { x: 78, z: -12.2, width: 10.5, color: '#5ca7f2', label: 7, awning: '#273b53', height: 4.6 }
+  ]).slice(0, profile.storefronts), [profile.storefronts]);
+
+  useFrame((state) => {
+    const t = state.clock.elapsedTime;
+    signRefs.current.forEach((mat, i) => {
+      if (!mat) return;
+      mat.emissiveIntensity = 0.22 + Math.max(0, Math.sin(t * 0.9 + i * 0.7)) * motion.signPulse;
+    });
+  });
+
+  return <>{storefronts.map((shop, i) => {
+    const facing = shop.z > 0 ? Math.PI : 0;
+    return (
+      <group key={`shop-${i}`} position={[shop.x, 0, shop.z]} rotation={[0, facing, 0]}>
+        <mesh position={[0, shop.height / 2, 0]}>
+          <boxGeometry args={[shop.width, shop.height, 1.8]}/>
+          <meshStandardMaterial color="#2a2f3a" roughness={0.92}/>
+        </mesh>
+        <mesh position={[0, 0.95, -0.96]}>
+          <boxGeometry args={[shop.width - 0.8, 1.7, 0.14]}/>
+          <meshBasicMaterial color={palette.transitGlass} transparent opacity={0.18}/>
+        </mesh>
+        <mesh position={[0, shop.height - 0.6, -1.0]}>
+          <boxGeometry args={[shop.width - 1.0, 0.32, 0.9]}/>
+          <meshStandardMaterial color={shop.awning} roughness={0.94}/>
+        </mesh>
+        <mesh position={[0, shop.height - 0.15, -1.02]}>
+          <boxGeometry args={[shop.width * 0.55, 0.46, 0.14]}/>
+          <meshStandardMaterial ref={(el) => { signRefs.current[i] = el; }} color={shop.color} emissive={shop.color} emissiveIntensity={0.24}/>
+        </mesh>
+        <mesh position={[-shop.width * 0.22, 1.0, -0.98]}>
+          <boxGeometry args={[1.2, 1.9, 0.12]}/>
+          <meshStandardMaterial color="#17191f" roughness={0.94}/>
+        </mesh>
+        <mesh position={[shop.width * 0.22, 1.15, -0.98]}>
+          <boxGeometry args={[1.5, 1.6, 0.12]}/>
+          <meshBasicMaterial color={palette.transitGlass} transparent opacity={0.16}/>
+        </mesh>
+      </group>
+    );
+  })}</>;
+}
+
+function StreetFurniture({ palette }) {
+  return (
+    <>
+      <group position={[-28, 0, 9.05]} rotation={[0, Math.PI, 0]}>
+        <mesh position={[0, 1.55, 0]}>
+          <boxGeometry args={[3.8, 0.12, 1.2]}/>
+          <meshStandardMaterial color={palette.concrete} roughness={0.9}/>
+        </mesh>
+        {[-1.5, 1.5].map((x) => (
+          <mesh key={x} position={[x, 0.78, 0]}>
+            <boxGeometry args={[0.12, 1.56, 0.12]}/>
+            <meshStandardMaterial color="#4b5563" roughness={0.92}/>
+          </mesh>
+        ))}
+        <mesh position={[0, 0.78, -0.45]}>
+          <boxGeometry args={[2.6, 1.3, 0.08]}/>
+          <meshBasicMaterial color={palette.transitGlass} transparent opacity={0.14}/>
+        </mesh>
+        <mesh position={[0, 1.95, -0.48]}>
+          <boxGeometry args={[1.8, 0.28, 0.12]}/>
+          <meshLambertMaterial color={palette.shopGlow} emissive={palette.shopGlow} emissiveIntensity={0.18}/>
+        </mesh>
+        <mesh position={[0, 0.35, 0.18]}>
+          <boxGeometry args={[1.8, 0.1, 0.35]}/>
+          <meshStandardMaterial color="#58606c" roughness={0.95}/>
+        </mesh>
+        <mesh position={[0, 0.58, 0.02]}>
+          <boxGeometry args={[1.8, 0.3, 0.08]}/>
+          <meshStandardMaterial color="#505966" roughness={0.95}/>
+        </mesh>
+      </group>
+
+      <group position={[31, 0, -9.1]}>
+        <mesh position={[0, 0.9, 0]}>
+          <boxGeometry args={[1.0, 1.8, 0.78]}/>
+          <meshStandardMaterial color="#616b78" roughness={0.88}/>
+        </mesh>
+        <mesh position={[0, 1.06, 0.4]}>
+          <boxGeometry args={[0.68, 1.08, 0.06]}/>
+          <meshBasicMaterial color={palette.transitGlass} transparent opacity={0.18}/>
+        </mesh>
+        <mesh position={[0, 1.78, 0.37]}>
+          <boxGeometry args={[0.78, 0.2, 0.08]}/>
+          <meshLambertMaterial color={palette.shopGlow} emissive={palette.shopGlow} emissiveIntensity={0.28}/>
+        </mesh>
+        <mesh position={[0, 0.42, 0.4]}>
+          <boxGeometry args={[0.6, 0.18, 0.06]}/>
+          <meshStandardMaterial color="#1f2937" roughness={0.92}/>
+        </mesh>
+      </group>
+
+      <group position={[18, 0, 9.0]} rotation={[0, Math.PI, 0]}>
+        <mesh position={[0, 0.4, 0]}>
+          <boxGeometry args={[1.8, 0.12, 0.36]}/>
+          <meshStandardMaterial color="#5b6470" roughness={0.95}/>
+        </mesh>
+        <mesh position={[0, 0.76, 0.08]}>
+          <boxGeometry args={[1.72, 0.64, 0.08]}/>
+          <meshStandardMaterial color="#505966" roughness={0.95}/>
+        </mesh>
+        {[-0.72, 0.72].map((x) => (
+          <mesh key={x} position={[x, 0.22, 0]}>
+            <boxGeometry args={[0.1, 0.4, 0.1]}/>
+            <meshStandardMaterial color="#4b5563" roughness={0.95}/>
+          </mesh>
+        ))}
+      </group>
+
+      {[
+        [18.2, 0, 8.95],
+        [31.8, 0, -8.95],
+        [31.8, 0, 8.95],
+        [18.2, 0, -8.95]
+      ].map((pos, i) => (
+        <group key={`crosswalk-box-${i}`} position={pos}>
+          <mesh position={[0, 1.2, 0]}>
+            <boxGeometry args={[0.12, 2.4, 0.12]}/>
+            <meshStandardMaterial color="#3f4652" roughness={0.92}/>
+          </mesh>
+          <mesh position={[0, 2.45, 0]}>
+            <boxGeometry args={[0.42, 0.5, 0.18]}/>
+            <meshStandardMaterial color="#1b2029" roughness={0.9}/>
+          </mesh>
+        </group>
+      ))}
+    </>
+  );
+}
+
+function DistrictAccents({ palette }) {
+  return (
+    <>
+      <group position={[-70, 0, 12.15]}>
+        <mesh position={[0, 0.95, 0]}>
+          <boxGeometry args={[3.1, 1.9, 1.4]}/>
+          <meshStandardMaterial color="#2a313d" roughness={0.92}/>
+        </mesh>
+        <mesh position={[0, 2.0, 0]}>
+          <boxGeometry args={[3.5, 0.12, 1.68]}/>
+          <meshStandardMaterial color="#505966" roughness={0.9}/>
+        </mesh>
+        <mesh position={[0, 1.05, -0.74]}>
+          <boxGeometry args={[2.4, 1.08, 0.08]}/>
+          <meshBasicMaterial color={palette.transitGlass} transparent opacity={0.18}/>
+        </mesh>
+        <mesh position={[0, 1.82, -0.72]}>
+          <boxGeometry args={[2.2, 0.28, 0.12]}/>
+          <meshLambertMaterial color={palette.shopGlow} emissive={palette.shopGlow} emissiveIntensity={0.22}/>
+        </mesh>
+        <mesh position={[-0.9, 0.42, -0.74]}>
+          <boxGeometry args={[0.7, 0.42, 0.08]}/>
+          <meshStandardMaterial color="#1f2937" roughness={0.92}/>
+        </mesh>
+        <mesh position={[0.9, 0.42, -0.74]}>
+          <boxGeometry args={[0.7, 0.42, 0.08]}/>
+          <meshStandardMaterial color="#1f2937" roughness={0.92}/>
+        </mesh>
+      </group>
+
+      <group position={[-56, 0, 12.05]} rotation={[0, Math.PI, 0]}>
+        <mesh position={[0, 0.66, 0]}>
+          <boxGeometry args={[1.7, 1.32, 0.95]}/>
+          <meshStandardMaterial color="#c27b43" roughness={0.9}/>
+        </mesh>
+        <mesh position={[0, 1.42, 0]}>
+          <boxGeometry args={[2.15, 0.08, 1.1]}/>
+          <meshStandardMaterial color="#4b5563" roughness={0.88}/>
+        </mesh>
+        {[-0.74, 0.74].map((x) => (
+          <mesh key={x} position={[x, 1.0, 0]}>
+            <boxGeometry args={[0.08, 0.74, 0.08]}/>
+            <meshStandardMaterial color="#5b6470" roughness={0.92}/>
+          </mesh>
+        ))}
+        <mesh position={[0, 0.9, -0.52]}>
+          <boxGeometry args={[1.24, 0.58, 0.06]}/>
+          <meshBasicMaterial color={palette.transitGlass} transparent opacity={0.14}/>
+        </mesh>
+        {[-0.68, 0.68].map((x) => (
+          <mesh key={`wheel-${x}`} rotation={[0, 0, Math.PI / 2]} position={[x, 0.2, 0.48]}>
+            <cylinderGeometry args={[0.16, 0.16, 0.12, 12]}/>
+            <meshStandardMaterial color="#111827" roughness={0.8}/>
+          </mesh>
+        ))}
+      </group>
+
+      <group position={[58, 0, 12.15]}>
+        <mesh position={[0, 1.4, 0]}>
+          <boxGeometry args={[2.1, 2.8, 0.26]}/>
+          <meshStandardMaterial color="#212733" roughness={0.92}/>
+        </mesh>
+        <mesh position={[0, 1.42, -0.15]}>
+          <boxGeometry args={[1.72, 2.18, 0.06]}/>
+          <meshBasicMaterial color={palette.transitGlass} transparent opacity={0.14}/>
+        </mesh>
+        <mesh position={[0, 2.98, -0.06]}>
+          <boxGeometry args={[1.46, 0.34, 0.12]}/>
+          <meshLambertMaterial color={palette.shopGlow} emissive={palette.shopGlow} emissiveIntensity={0.32}/>
+        </mesh>
+        <mesh position={[0, 0.58, -0.08]}>
+          <boxGeometry args={[1.18, 0.44, 0.12]}/>
+          <meshStandardMaterial color="#374151" roughness={0.94}/>
+        </mesh>
+      </group>
+
+      <group position={[74, 0, -12.1]}>
+        {[-1.0, 0, 1.0].map((x, i) => (
+          <mesh key={i} position={[x, 0.9, 0]}>
+            <boxGeometry args={[0.82, 1.8, 0.78]}/>
+            <meshStandardMaterial color={i === 1 ? '#d07c52' : '#4b5563'} roughness={0.92}/>
+          </mesh>
+        ))}
+        {[-1.0, 0, 1.0].map((x, i) => (
+          <mesh key={`slot-${i}`} position={[x, 1.2, -0.42]}>
+            <boxGeometry args={[0.46, 0.06, 0.06]}/>
+            <meshStandardMaterial color="#111827" roughness={0.9}/>
+          </mesh>
+        ))}
+        <mesh position={[0, 1.98, 0]}>
+          <boxGeometry args={[3.2, 0.22, 0.88]}/>
+          <meshLambertMaterial color={palette.shopGlow} emissive={palette.shopGlow} emissiveIntensity={0.18}/>
+        </mesh>
+      </group>
     </>
   );
 }
@@ -1268,6 +1575,10 @@ function GameEnvironment({ palette, profile, motion }) {
       <SuspendedStreetDetails count={profile.wireCount} motion={motion} palette={palette}/>
       <TrafficFlow profile={profile} palette={palette} motion={motion}/>
       <PedestrianHints profile={profile} palette={palette} motion={motion}/>
+      <ParkedCars profile={profile} palette={palette}/>
+      <CityStorefronts profile={profile} palette={palette} motion={motion}/>
+      <StreetFurniture palette={palette}/>
+      <DistrictAccents palette={palette}/>
 
       {/* Intersection Zebra Crossing / Markings */}
       <group position={[25, 0.015, 0]}>
