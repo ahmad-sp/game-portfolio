@@ -157,12 +157,15 @@ export default function Menu() {
       {/* Top-left branding */}
       <div style={{
         position: 'absolute', top: 32, left: '6%',
-        fontFamily: "'Pricedown Bl', sans-serif",
-        fontSize: 20, color: 'rgba(212,168,67,0.8)',
-        textShadow: '2px 2px 0 rgba(0,0,0,0.8)',
+        fontFamily: "'Oswald', sans-serif",
+        fontWeight: 900,
+        fontSize: 32,
+        letterSpacing: "0.15em",
+        color: "#D4A843",
+        textShadow: "0 0 8px rgba(212, 168, 67, 0.4)",
         textTransform: 'uppercase'
       }}>
-        Ahmad S P • Portfolio
+        AHMAD
       </div>
 
       {/* Top-right Controls */}
@@ -174,11 +177,11 @@ export default function Menu() {
         <div style={{ display: 'flex', gap: 20 }}>
           {[
             { 
-              name: 'LinkedIn', url: 'https://linkedin.com/',
+              name: 'LinkedIn', url: 'https://linkedin.com/in/ahmad-s-p/',
               svg: <path d="M19 0h-14c-2.76 0-5 2.24-5 5v14c0 2.76 2.24 5 5 5h14c2.76 0 5-2.24 5-5v-14c0-2.76-2.24-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.27c-.97 0-1.75-.79-1.75-1.75s.78-1.75 1.75-1.75 1.75.79 1.75 1.75-.78 1.75-1.75 1.75zm13.5 12.27h-3v-5.6c0-3.37-4-3.12-4 0v5.6h-3v-11h3v1.76c1.4-2.58 7-2.78 7 2.48v6.76z" />
             },
             { 
-              name: 'GitHub', url: 'https://github.com/',
+              name: 'GitHub', url: 'https://github.com/ahmad-sp',
               svg: <path d="M12 0c-6.63 0-12 5.37-12 12 0 5.3 3.44 9.8 8.2 11.38.6.11.82-.26.82-.58v-2.16c-3.34.73-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.09-.75.08-.73.08-.73 1.2.08 1.83 1.23 1.83 1.23 1.07 1.83 2.8 1.3 3.49.99.11-.77.42-1.3.76-1.6-2.67-.3-5.47-1.34-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.12-.3-.54-1.53.12-3.18 0 0 1.01-.32 3.3 1.23.96-.27 1.98-.4 3-.4 1.02 0 2.04.13 3 .4 2.29-1.55 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.77.84 1.24 1.91 1.24 3.22 0 4.61-2.8 5.62-5.48 5.91.43.37.82 1.11.82 2.24v3.32c0 .32.22.7.83.58 4.75-1.58 8.19-6.08 8.19-11.38 0-6.63-5.37-12-12-12z" />
             }
           ].map((link) => (
@@ -201,7 +204,7 @@ export default function Menu() {
            style={{
              display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px',
              border: '1px solid rgba(255,255,255,0.1)', borderRadius: 2,
-             color: 'rgba(255,255,255,0.5)', fontFamily: "'Oswald', sans-serif", fontSize: 11, fontWeight: 500,
+             color: 'rgba(255,255,255,0.5)', fontFamily: "'Oswald', sans-serif", fontSize: 9, fontWeight: 500,
              letterSpacing: '0.15em', textTransform: 'uppercase', textDecoration: 'none', cursor: 'pointer',
              backdropFilter: 'blur(4px)', background: 'rgba(0,0,0,0.5)',
            }}>

@@ -11,121 +11,230 @@ import Skills from '../ui/Skills';
 import Contact from '../ui/Contact';
 import Certifications from '../ui/Certifications';
 
-// Global camera animated target
+// Global camera memory state
+export const CURRENT_CAM = { pos: new THREE.Vector3(0, 2, 10), yaw: 0, pitch: 0 };
 export const camTarget = {
-  pos: new THREE.Vector3(0, 2, 10),
-  look: new THREE.Vector3(0, 0, 0),
-  fly: false,
+  savedPos: new THREE.Vector3(0, 2, 10),
+  savedYaw: 0,
+  savedPitch: 0,
+  hasSaved: false,
+};
+
+export const flyToStation = (x, y, z, yaw, pitch, saveCurrent = false) => {
+  if (saveCurrent) {
+    camTarget.savedPos.copy(CURRENT_CAM.pos);
+    camTarget.savedYaw = CURRENT_CAM.yaw;
+    camTarget.savedPitch = CURRENT_CAM.pitch;
+    camTarget.hasSaved = true;
+  }
+  window.dispatchEvent(new CustomEvent('camera-fly', { detail: { x, y, z, yaw, pitch } }));
+};
+
+export const returnCamera = () => {
+  if (camTarget.hasSaved) {
+    window.dispatchEvent(new CustomEvent('camera-fly', { 
+      detail: { 
+        x: camTarget.savedPos.x, 
+        y: camTarget.savedPos.y, 
+        z: camTarget.savedPos.z, 
+        yaw: camTarget.savedYaw, 
+        pitch: camTarget.savedPitch 
+      } 
+    }));
+    camTarget.hasSaved = false;
+  }
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Camera — WASD + Mouse + Touch drag + Fly-To
+// True Free Camera — WASD + Drag Look (Touch Separate) + Breakaway GSAP Fly-To
 // ─────────────────────────────────────────────────────────────────────────────
-function CameraController({ mobileKeys, highSensitivity }) {
+function CameraController({ mobileJoystick, highSensitivity, activeSection }) {
   const { camera } = useThree();
-  const keys   = useRef({});
-  const mouse  = useRef({ x: 0, y: 0 });
-  const touch  = useRef({ active: false, lx: 0, ly: 0, dx: 0, dy: 0 });
+  const keys = useRef({});
+  const activeRef = useRef(activeSection);
+  const input = useRef({ 
+      lookTouchId: null, lx: 0, ly: 0, 
+      yaw: 0, pitch: 0, 
+      targetYaw: 0, targetPitch: 0 
+  });
+  const vel = useRef(new THREE.Vector3());
   const curPos = useRef(new THREE.Vector3(0, 2, 10));
-  const curLook= useRef({ x: 0, y: 0 });
-  const moveV  = useRef(new THREE.Vector3());
-  const fwdV   = useRef(new THREE.Vector3());
-  const rightV = useRef(new THREE.Vector3());
-  const upV    = useRef(new THREE.Vector3(0, 1, 0));
 
   useEffect(() => {
-    const kd = (e) => { keys.current[e.code] = true; };
-    const ku = (e) => { keys.current[e.code] = false; };
-    const mm = (e) => {
-      mouse.current.x = (e.clientX / window.innerWidth - 0.5) * 2;
-      mouse.current.y = (e.clientY / window.innerHeight - 0.5) * 2;
+    activeRef.current = activeSection;
+  }, [activeSection]);
+
+  useEffect(() => {
+    const killFly = () => {
+      gsap.killTweensOf(curPos.current);
+      gsap.killTweensOf(input.current);
     };
-    const ts = (e) => {
-      const t = e.touches[0];
-      touch.current = { active: true, lx: t.clientX, ly: t.clientY, dx: touch.current.dx, dy: touch.current.dy };
+
+    const handleFly = (e) => {
+      const { x, y, z, yaw, pitch } = e.detail;
+      killFly();
+      // Smooth flight exact physical requirement: ~1.2s power3.out
+      gsap.to(curPos.current, { x, y, z, duration: 1.2, ease: "power3.out" });
+      gsap.to(input.current, { targetYaw: yaw, targetPitch: pitch, duration: 1.2, ease: "power3.out" });
     };
-    const tm = (e) => {
-      if (!touch.current.active) return;
-      const t = e.touches[0];
-      touch.current.dx = Math.max(-1.2, Math.min(1.2, touch.current.dx + (t.clientX - touch.current.lx) * 0.003));
-      touch.current.dy = Math.max(-0.5, Math.min(0.5, touch.current.dy + (t.clientY - touch.current.ly) * 0.002));
-      touch.current.lx = t.clientX; touch.current.ly = t.clientY;
+    window.addEventListener('camera-fly', handleFly);
+
+    const setKey = (code, val) => {
+      keys.current[code] = val;
+      if (val) killFly(); 
     };
-    const te = () => { touch.current.active = false; };
-    window.addEventListener('keydown', kd);
-    window.addEventListener('keyup', ku);
-    window.addEventListener('mousemove', mm);
-    window.addEventListener('touchstart', ts, { passive: true });
-    window.addEventListener('touchmove', tm, { passive: true });
-    window.addEventListener('touchend', te);
+    const kd = (e) => setKey(e.code, true);
+    const ku = (e) => setKey(e.code, false);
+
+    // Mouse controls (Desktop Drag Look)
+    const mDown = (e) => {
+      if (activeRef.current !== null) return;
+      input.current.lookTouchId = 'mouse';
+      input.current.lx = e.clientX; input.current.ly = e.clientY;
+      killFly();
+    };
+    const mMove = (e) => {
+      if (input.current.lookTouchId !== 'mouse') return;
+      const dx = e.clientX - input.current.lx;
+      const dy = e.clientY - input.current.ly;
+      input.current.lx = e.clientX; input.current.ly = e.clientY;
+      
+      const sensitivity = highSensitivity ? 0.005 : 0.0025;
+      input.current.targetYaw -= dx * sensitivity;
+      input.current.targetPitch -= dy * sensitivity;
+      input.current.targetPitch = Math.max(-Math.PI / 2.1, Math.min(Math.PI / 2.1, input.current.targetPitch));
+    };
+    const mUp = () => { input.current.lookTouchId = null; };
+
+    // Multi-Touch Controls (Mobile separation of Joystick and Look)
+    const tDown = (e) => {
+      if (activeRef.current !== null) return;
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        const t = e.changedTouches[i];
+        // If touch is on the right side of the screen, it's a Look touch
+        if (t.clientX >= window.innerWidth * 0.4 && input.current.lookTouchId === null) {
+          input.current.lookTouchId = t.identifier;
+          input.current.lx = t.clientX; input.current.ly = t.clientY;
+          killFly();
+        }
+      }
+    };
+    const tMove = (e) => {
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        const t = e.changedTouches[i];
+        if (t.identifier === input.current.lookTouchId) {
+          // Calculate delta, cap it against lag spikes
+          let dx = t.clientX - input.current.lx;
+          let dy = t.clientY - input.current.ly;
+          if (dx > 50) dx = 50; if (dx < -50) dx = -50;
+          if (dy > 50) dy = 50; if (dy < -50) dy = -50;
+          
+          input.current.lx = t.clientX; input.current.ly = t.clientY;
+          
+          const sensitivity = highSensitivity ? 0.005 : 0.0025;
+          input.current.targetYaw -= dx * sensitivity;
+          input.current.targetPitch -= dy * sensitivity;
+          input.current.targetPitch = Math.max(-Math.PI / 2.1, Math.min(Math.PI / 2.1, input.current.targetPitch));
+        }
+      }
+    };
+    const tUp = (e) => {
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        if (e.changedTouches[i].identifier === input.current.lookTouchId) {
+          input.current.lookTouchId = null;
+        }
+      }
+    };
+
+    window.addEventListener('keydown', kd); window.addEventListener('keyup', ku);
+    window.addEventListener('mousedown', mDown); window.addEventListener('mousemove', mMove); window.addEventListener('mouseup', mUp);
+    window.addEventListener('touchstart', tDown, { passive: true });
+    window.addEventListener('touchmove', tMove, { passive: true });
+    window.addEventListener('touchend', tUp);
+    window.addEventListener('touchcancel', tUp);
+
     return () => {
-      window.removeEventListener('keydown', kd);   window.removeEventListener('keyup', ku);
-      window.removeEventListener('mousemove', mm); window.removeEventListener('touchstart', ts);
-      window.removeEventListener('touchmove', tm); window.removeEventListener('touchend', te);
+      window.removeEventListener('camera-fly', handleFly);
+      window.removeEventListener('keydown', kd); window.removeEventListener('keyup', ku);
+      window.removeEventListener('mousedown', mDown); window.removeEventListener('mousemove', mMove); window.removeEventListener('mouseup', mUp);
+      window.removeEventListener('touchstart', tDown); window.removeEventListener('touchmove', tMove); window.removeEventListener('touchend', tUp); window.removeEventListener('touchcancel', tUp);
     };
-  }, []);
+  }, [highSensitivity]);
+
+  useEffect(() => {
+    if (mobileJoystick && (mobileJoystick.x !== 0 || mobileJoystick.y !== 0)) {
+      gsap.killTweensOf(curPos.current);
+      gsap.killTweensOf(input.current);
+    }
+  }, [mobileJoystick]);
 
   useFrame((state, delta) => {
-    if (camTarget.fly) {
-      camera.position.lerp(camTarget.pos, 0.045);
-      curLook.current.x += (camTarget.look.x - curLook.current.x) * 0.04;
-      curLook.current.y += (camTarget.look.y - curLook.current.y) * 0.04;
-      camera.lookAt(curLook.current.x, curLook.current.y, camTarget.look.z);
-      curPos.current.copy(camera.position);
-      return;
+    const k = keys.current;
+    // Cap delta to avoid heavy lag spikes making user jump off map
+    const dt = Math.min(delta, 0.1);
+    const damp = (a, b, lambda) => THREE.MathUtils.lerp(a, b, 1 - Math.exp(-lambda * dt));
+
+    // Update global reference manually for state restore
+    CURRENT_CAM.pos.copy(curPos.current);
+    CURRENT_CAM.yaw = input.current.yaw;
+    CURRENT_CAM.pitch = input.current.pitch;
+
+    const spd = 20;
+    const accel = new THREE.Vector3();
+    
+    if (activeSection === null) {
+      // Mathematical exact forward based on standard negative Z axis
+      const fwdV = new THREE.Vector3(-Math.sin(input.current.yaw), 0, -Math.cos(input.current.yaw)).normalize();
+      const rightV = new THREE.Vector3(Math.cos(input.current.yaw), 0, -Math.sin(input.current.yaw)).normalize();
+
+      let moveX = mobileJoystick ? mobileJoystick.x : 0;
+      let moveY = mobileJoystick ? mobileJoystick.y : 0;
+
+      // WASD mapping: KeyW -> moveY=-1
+      if (k['KeyW'] || k['ArrowUp']) moveY -= 1;
+      if (k['KeyS'] || k['ArrowDown']) moveY += 1;
+      if (k['KeyD'] || k['ArrowRight']) moveX += 1;
+      if (k['KeyA'] || k['ArrowLeft']) moveX -= 1;
+
+      const joyLen = Math.sqrt(moveX * moveX + moveY * moveY);
+      if (joyLen > 1.0) { moveX /= joyLen; moveY /= joyLen; }
+
+      if (moveY !== 0) accel.addScaledVector(fwdV, -moveY);
+      if (moveX !== 0) accel.addScaledVector(rightV, moveX);
+
+      if (accel.lengthSq() > 0) {
+        accel.normalize().multiplyScalar(spd * Math.min(1.0, Math.max(0.1, joyLen || 1.0)));
+      }
     }
-    const k = { ...keys.current, ...mobileKeys };
-    const spd = 9;
-    const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
-    // Ground-plane "free flow" movement: move relative to camera look direction.
-    // Project forward/right onto XZ plane so motion stays level.
-    camera.getWorldDirection(fwdV.current);
-    fwdV.current.y = 0;
-    if (fwdV.current.lengthSq() < 1e-6) fwdV.current.set(0, 0, -1);
-    fwdV.current.normalize();
-    rightV.current.copy(fwdV.current).cross(upV.current).normalize();
-
-    moveV.current.set(0, 0, 0);
-    if (k['KeyW'] || k['ArrowUp']) moveV.current.add(fwdV.current);
-    if (k['KeyS'] || k['ArrowDown']) moveV.current.sub(fwdV.current);
-    if (k['KeyD'] || k['ArrowRight']) moveV.current.add(rightV.current);
-    if (k['KeyA'] || k['ArrowLeft']) moveV.current.sub(rightV.current);
-
-    if (moveV.current.lengthSq() > 0) {
-      moveV.current.normalize().multiplyScalar(spd * delta);
-      curPos.current.add(moveV.current);
+    vel.current.lerp(accel, 1 - Math.exp(-10 * dt));
+    
+    if (vel.current.lengthSq() > 0.001) {
+      curPos.current.addScaledVector(vel.current, dt);
     }
 
-    // Boundary: keep camera inside playable city area
     const B = { xMin: -70, xMax: 70, zMin: -55, zMax: 55 };
-    curPos.current.x = clamp(curPos.current.x, B.xMin, B.xMax);
-    curPos.current.z = clamp(curPos.current.z, B.zMin, B.zMax);
+    curPos.current.x = Math.max(B.xMin, Math.min(B.xMax, curPos.current.x));
+    curPos.current.z = Math.max(B.zMin, Math.min(B.zMax, curPos.current.z));
 
-    // Gentle head-bob
-    curPos.current.y = 2 + Math.sin(state.clock.elapsedTime * 0.38) * 0.1;
-    
-    // Slow drift displacement
     const t = state.clock.elapsedTime;
-    const finalPos = curPos.current.clone();
-    finalPos.x += Math.sin(t * 0.15) * 0.6;
-    finalPos.z += Math.cos(t * 0.1) * 0.6;
+    const isMoving = vel.current.lengthSq() > 1;
+    let bobY = 2 + Math.sin(t * 1.5) * 0.05;
+    if (isMoving) bobY += Math.sin(t * 10) * 0.15; 
     
-    camera.position.lerp(finalPos, 0.07);
+    curPos.current.y = Math.max(1.0, Math.min(50.0, curPos.current.y));
     
-    // Sensitivity Multiplier
-    const mx = highSensitivity ? 5.5 : 2.2;
-    const my = highSensitivity ? 2.5 : 0.9;
-    const lx = mouse.current.x * mx - touch.current.dx * 1.5;
-    const ly = -mouse.current.y * my - touch.current.dy;
-    
-    curLook.current.x += (lx - curLook.current.x) * 0.06;
-    curLook.current.y += (ly - curLook.current.y) * 0.06;
-    
-    const lookX = curLook.current.x + Math.sin(t * 0.22) * 0.3;
-    const lookY = curLook.current.y + 0.5 + Math.cos(t * 0.18) * 0.2;
-    camera.lookAt(lookX, lookY, 0);
+    camera.position.x = damp(camera.position.x, curPos.current.x, 15);
+    camera.position.y = damp(camera.position.y, bobY, 10);
+    camera.position.z = damp(camera.position.z, curPos.current.z, 15);
+
+    input.current.yaw = damp(input.current.yaw, input.current.targetYaw, 15);
+    input.current.pitch = damp(input.current.pitch, input.current.targetPitch, 15);
+
+    const euler = new THREE.Euler(input.current.pitch, input.current.yaw, 0, 'YXZ');
+    camera.quaternion.setFromEuler(euler);
   });
+
   return null;
 }
 
@@ -714,44 +823,95 @@ function BackgroundHUD() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// MOBILE CONTROLS
+// MOBILE JOYSTICK
 // ─────────────────────────────────────────────────────────────────────────────
-function MobileControls({ onKeys }) {
-  const [pressed, setPressed] = useState({});
-  const press = (k, v) => { setPressed(p=>({...p,[k]:v})); onKeys(prev=>({...prev,[k]:v})); };
-  
-  const ArrowIcon = ({ dir }) => {
-    let rot = 0;
-    if(dir==='right') rot=90; if(dir==='down') rot=180; if(dir==='left') rot=-90;
-    return (
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{transform:`rotate(${rot}deg)`}}>
-        <line x1="12" y1="19" x2="12" y2="5"></line>
-        <polyline points="5 12 12 5 19 12"></polyline>
-      </svg>
-    );
+function MobileControls({ onJoystick, hidden }) {
+  const baseRef = useRef(null);
+  const knobRef = useRef(null);
+  const active = useRef(false);
+
+  const MAX_RADIUS = 35;
+
+  const handlePointer = (e) => {
+    if (!active.current || hidden) return;
+    const rect = baseRef.current.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+    
+    const dx = e.clientX - centerX;
+    const dy = e.clientY - centerY;
+    
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    let moveX = dx;
+    let moveY = dy;
+    
+    if (dist > MAX_RADIUS) {
+      moveX = (dx / dist) * MAX_RADIUS;
+      moveY = (dy / dist) * MAX_RADIUS;
+    }
+    
+    if (knobRef.current) {
+      knobRef.current.style.transform = `translate(${moveX}px, ${moveY}px)`;
+    }
+    
+    // Normalize strictly from -1.0 to 1.0 (vector max length is 1)
+    let nx = moveX / MAX_RADIUS;
+    let ny = moveY / MAX_RADIUS;
+    
+    // Subtle physical deadzone to prevent accidental drift
+    if (Math.abs(nx) < 0.1) nx = 0;
+    if (Math.abs(ny) < 0.1) ny = 0;
+    
+    // Pass strictly raw analog input up
+    onJoystick({ x: nx, y: ny });
   };
-  
-  const btn = (key, dir) => (
-    <div style={{
-      width:50,height:50,
-      background:pressed[key]?'rgba(212,168,67,0.3)':'rgba(0,0,0,0.7)',
-      border:`1px solid rgba(212,168,67,${pressed[key] ? 0.6 : 0.2})`,
-      borderRadius:4,color:pressed[key]?'#D4A843':'rgba(255,255,255,0.7)',
-      display:'flex',alignItems:'center',justifyContent:'center',
-      cursor:'pointer',touchAction:'none',userSelect:'none',
-      WebkitUserSelect:'none',backdropFilter:'blur(6px)',
-      transition:'all .15s ease',
-    }}
-    onPointerDown={(e)=>{e.currentTarget.setPointerCapture(e.pointerId); press(key,true);}} 
-    onPointerUp={(e)=>{e.currentTarget.releasePointerCapture(e.pointerId); press(key,false);}} 
-    onPointerCancel={(e)=>{e.currentTarget.releasePointerCapture(e.pointerId); press(key,false);}}>
-      <ArrowIcon dir={dir} />
-    </div>
-  );
+
   return (
-    <div style={{position:'fixed',bottom:30,left:26,zIndex:500,display:'grid',gridTemplateColumns:'repeat(3,50px)',gridTemplateRows:'repeat(2,50px)',gap:6}}>
-      <div/>{btn('ArrowUp','up')}<div/>
-      {btn('ArrowLeft','left')}{btn('ArrowDown','down')}{btn('ArrowRight','right')}
+    <div 
+      ref={baseRef} 
+      style={{
+        position: 'fixed', bottom: 40, left: 40, zIndex: 500,
+        width: 100, height: 100,
+        borderRadius: '50%',
+        background: 'rgba(0, 0, 0, 0.45)',
+        border: '1px solid rgba(212, 168, 67, 0.4)',
+        boxShadow: '0 0 15px rgba(0, 0, 0, 0.5)',
+        backdropFilter: 'blur(8px)',
+        touchAction: 'none',
+        opacity: hidden ? 0 : 1,
+        pointerEvents: hidden ? 'none' : 'auto',
+        transition: 'opacity 0.3s ease'
+      }}
+      onPointerDown={(e) => {
+        if (hidden) return;
+        active.current = true;
+        e.currentTarget.setPointerCapture(e.pointerId);
+        handlePointer(e);
+      }}
+      onPointerMove={(e) => handlePointer(e)}
+      onPointerUp={(e) => {
+        active.current = false;
+        e.currentTarget.releasePointerCapture(e.pointerId);
+        if (knobRef.current) knobRef.current.style.transform = 'translate(0px, 0px)';
+        onJoystick({ x: 0, y: 0 });
+      }}
+      onPointerCancel={(e) => {
+        active.current = false;
+        e.currentTarget.releasePointerCapture(e.pointerId);
+        if (knobRef.current) knobRef.current.style.transform = 'translate(0px, 0px)';
+        onJoystick({ x: 0, y: 0 });
+      }}
+    >
+      <div ref={knobRef} style={{
+        position: 'absolute',
+        top: '50%', left: '50%',
+        width: 44, height: 44,
+        marginTop: -22, marginLeft: -22,
+        borderRadius: '50%',
+        background: 'rgba(212, 168, 67, 0.7)',
+        border: '2px solid rgba(255, 255, 255, 0.8)',
+        boxShadow: '0 0 12px rgba(212, 168, 67, 0.8), inset 0 0 10px rgba(0,0,0,0.3)',
+      }} />
     </div>
   );
 }
@@ -780,10 +940,16 @@ export default function GameScene() {
   const highSensitivity = useGameStore((s)=>s.highSensitivity);
   const toggleSensitivity = useGameStore((s)=>s.toggleSensitivity);
   const wrapRef = useRef(null);
-  const [mobileKeys, setMobileKeys] = useState({});
+  
+  // Safely hook joystick coordinates instead of keys
+  const [mobileJoystick, setMobileJoystick] = useState({ x: 0, y: 0 });
   const [isMobile, setIsMobile] = useState(false);
 
-  useEffect(()=>{ setIsMobile('ontouchstart' in window || window.innerWidth < 768); },[]);
+  useEffect(() => { 
+    // Strict mobile device detection natively dropping window innerWidth checks for maximum desktop safety
+    const isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+    setIsMobile(isTouch); 
+  },[]);
 
   useEffect(()=>{
     if(wrapRef.current) gsap.fromTo(wrapRef.current,{opacity:0},{opacity:1,duration:1.4,ease:'power2.out'});
@@ -796,17 +962,29 @@ export default function GameScene() {
 
   const activateStation = useCallback((id)=>{
     if(activeSection===id){
-      camTarget.fly=true; camTarget.pos.set(0,2,10); camTarget.look.set(0,0,0);
-      setTimeout(()=>{camTarget.fly=false;},1800); setActiveSection(null); return;
+      returnCamera();
+      setActiveSection(null); 
+      return;
     }
     const c=STATION_CAM[id]; if(!c) return;
-    camTarget.fly=true; camTarget.pos.set(...c.pos); camTarget.look.set(...c.look);
-    setTimeout(()=>{camTarget.fly=false; setActiveSection(id);},900);
+    
+    // Dynamically calculate the precise yaw and pitch required to look at the station from the fly-to position
+    const dx = c.look[0] - c.pos[0];
+    const dy = c.look[1] - c.pos[1];
+    const dz = c.look[2] - c.pos[2];
+    
+    const targetYaw = Math.atan2(dx, dz); 
+    const targetPitch = Math.atan2(dy, Math.sqrt(dx*dx + dz*dz));
+    
+    // Trigger smooth GSAP camera flight and PASS TRUE to save state memory
+    flyToStation(c.pos[0], c.pos[1], c.pos[2], targetYaw, targetPitch, true);
+    setActiveSection(id);
   },[activeSection]);
 
   const closeSection = useCallback(()=>{
-    camTarget.fly=true; camTarget.pos.set(0,2,10); camTarget.look.set(0,0,0);
-    setTimeout(()=>{camTarget.fly=false;},1800); setActiveSection(null);
+    // Restore the perfectly saved state from memory when user clicks Back/Close
+    returnCamera();
+    setActiveSection(null);
   },[]);
 
   const navBtns=[{id:'profile',color:'#4A90D9'},{id:'projects',color:'#D4A843'},{id:'skills',color:'#6AC46A'},{id:'contact',color:'#D46A6A'}];
@@ -819,7 +997,7 @@ export default function GameScene() {
         gl={{antialias:!isMobile,toneMapping:THREE.ACESFilmicToneMapping,toneMappingExposure:.95}}
         style={{width:'100%',height:'100%'}}>
         <Suspense fallback={null}>
-          <CameraController mobileKeys={mobileKeys} highSensitivity={highSensitivity} />
+          <CameraController mobileJoystick={mobileJoystick} highSensitivity={highSensitivity} activeSection={activeSection} />
           <color attach="background" args={['#0b162c']} />
           <fog attach="fog" args={['#0b162c', 30, 200]}/>
 
@@ -853,7 +1031,7 @@ export default function GameScene() {
 
       {/* ── Title ── */}
       <div style={{position:'absolute',top:24,left:28,pointerEvents:'none',zIndex:10}}>
-        <div style={{fontFamily:"'Pricedown Bl', sans-serif",fontSize:42,lineHeight:0.8,color:'rgba(212,168,67,0.8)',textShadow:'2px 2px 0 rgba(0,0,0,0.8)'}}>Ahmad S P</div>
+        <div style={{fontFamily:"'Oswald', sans-serif",fontSize:32,lineHeight:0.8,color:'rgba(192, 147, 43, 0.8)',textShadow:'2px 2px 0 rgba(0,0,0,0.8)'}}>AHMAD SP</div>
         <div style={{fontFamily:"'Oswald', sans-serif",fontSize:9,letterSpacing:'.45em',color:'rgba(255,255,255,0.22)',textTransform:'uppercase',marginTop:8}}>AIML · FULL STACK · AI ENGINEER</div>
       </div>
 
@@ -911,13 +1089,8 @@ export default function GameScene() {
       </button>
 
       {/* ── Mobile arrow controls ── */}
-      {isMobile && <MobileControls onKeys={setMobileKeys}/>}
+      {isMobile && <MobileControls onJoystick={setMobileJoystick} hidden={activeSection !== null}/>}
 
-      {/* ── Panels ── */}
-      {activeSection==='profile'  && <Profile  onClose={closeSection}/>}
-      {activeSection==='projects' && <Projects onClose={closeSection}/>}
-      {activeSection==='skills'   && <Skills   onClose={closeSection}/>}
-      {activeSection==='contact'  && <Contact  onClose={closeSection}/>}
     </div>
   );
 }
