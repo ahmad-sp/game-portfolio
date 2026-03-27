@@ -157,15 +157,15 @@ export default function Menu() {
       {/* Top-left branding */}
       <div style={{
         position: 'absolute', top: 32, left: '6%',
-        fontFamily: "'Oswald', sans-serif",
+        fontFamily: "'Pricedown Bl', sans-serif",
         fontWeight: 900,
-        fontSize: 32,
-        letterSpacing: "0.15em",
+        fontSize: 36,
+        letterSpacing: "0.12em",
         color: "#D4A843",
         textShadow: "0 0 8px rgba(212, 168, 67, 0.4)",
         textTransform: 'uppercase'
       }}>
-        AHMAD
+        AHMAD SP
       </div>
 
       {/* Top-right Controls */}

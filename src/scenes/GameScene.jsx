@@ -241,321 +241,474 @@ function CameraController({ mobileJoystick, highSensitivity, activeSection }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // PROFILE — Holographic ID terminal slab with scan animation
 // ─────────────────────────────────────────────────────────────────────────────
-function ProfileStation({ position, onActivate, isActive }) {
-  const root    = useRef(); const scanRef = useRef();
-  const glowRef = useRef(); const ringRef = useRef();
+// ─────────────────────────────────────────────────────────────────────────────
+// PROFILE — Shop Storefront Diorama with Avatar
+// ─────────────────────────────────────────────────────────────────────────────
+function ProfileStation({ position, rotation, onActivate, isActive }) {
+  const root    = useRef(); 
+  const glowRef = useRef(); 
   const [hov, setHov] = useState(false);
+  const C = '#4A90D9';
 
   useFrame((state) => {
     const t = state.clock.elapsedTime;
     if (!root.current) return;
-    root.current.position.y = position[1] + Math.sin(t * 0.65) * 0.14;
-    root.current.rotation.y = Math.sin(t * 0.28) * 0.07;
-    // Scan line scrolling
-    if (scanRef.current) scanRef.current.position.y = -1.1 + ((t * 0.6) % 2.2);
-    if (glowRef.current) glowRef.current.material.opacity = (hov || isActive) ? 0.16 + Math.sin(t*2)*0.06 : 0.04;
-    if (ringRef.current) {
-      const p = ((t * 0.5) % 1);
-      ringRef.current.scale.setScalar(1 + p * 0.8);
-      ringRef.current.material.opacity = 0.35 * (1 - p);
-    }
+    // Slow architectural breathing effect, very grounded
+    root.current.position.y = position[1] + Math.sin(t * 0.8) * 0.04;
+    
+    if (glowRef.current) glowRef.current.material.opacity = (hov || isActive) ? 0.3 + Math.sin(t*3)*0.1 : 0.1;
   });
 
   const oe = () => { setHov(true);  document.body.style.cursor='pointer'; audio.hover(); if(root.current) gsap.to(root.current.scale,{x:1.06,y:1.06,z:1.06,duration:.3,ease:'power2.out'}); };
   const ol = () => { setHov(false); document.body.style.cursor='auto';   if(root.current) gsap.to(root.current.scale,{x:1,y:1,z:1,duration:.3}); };
 
-  const C = '#4A90D9';
   return (
-    <group ref={root} position={position} onPointerEnter={oe} onPointerLeave={ol} onClick={()=>{audio.click();onActivate();}}>
-      {/* Outer glow halo */}
-      <mesh ref={glowRef}><planeGeometry args={[2.6,3.8]}/><meshBasicMaterial color={C} transparent opacity={.04} side={THREE.DoubleSide}/></mesh>
+    <group ref={root} position={position} rotation={rotation} onPointerEnter={oe} onPointerLeave={ol} onClick={()=>{audio.click();onActivate();}}>
+      {/* Grounding Shadow Plane */}
+      <mesh position={[0,-1.0,0]} rotation={[-Math.PI/2,0,0]}><circleGeometry args={[2.5, 32]}/><meshBasicMaterial color="#000" transparent opacity={0.5}/></mesh>
 
-      {/* Main slab body */}
-      <mesh><boxGeometry args={[2,2.8,.18]}/><meshStandardMaterial color="#060c18" roughness={.92} metalness={.05} emissive="#060c18" emissiveIntensity={1}/></mesh>
-      {/* Slab depth rim — top, bottom, sides as thin strips */}
-      {/* Top rim */}
-      <mesh position={[0,1.39,.0]}><boxGeometry args={[2,.04,.18]}/><meshStandardMaterial color={C} emissive={C} emissiveIntensity={(hov||isActive)?1.6:.5}/></mesh>
-      {/* Bottom rim */}
-      <mesh position={[0,-1.39,.0]}><boxGeometry args={[2,.04,.18]}/><meshStandardMaterial color={C} emissive={C} emissiveIntensity={(hov||isActive) ? 0.8 : 0.2}/></mesh>
-      {/* Left / right edge glow lines */}
-      {[-1,1].map((x,i)=>(
-        <mesh key={i} position={[x*.99,0,.0]}><boxGeometry args={[.025,2.8,.18]}/><meshStandardMaterial color={C} emissive={C} emissiveIntensity={(hov||isActive)?1.2:.35}/></mesh>
-      ))}
-
-      {/* Internal face details */}
-      {/* Header label strip */}
-      <mesh position={[0,1.07,.1]}><boxGeometry args={[1.85,.22,.02]}/><meshStandardMaterial color={C} emissive={C} emissiveIntensity={.5}/></mesh>
-      {/* Avatar block */}
-      <mesh position={[-.6,.35,.1]}><boxGeometry args={[.55,.65,.04]}/><meshStandardMaterial color="#0b1a30" roughness={.9} emissive="#0f2648" emissiveIntensity={.6}/></mesh>
-      {/* Avatar A */}
-      <Html zIndexRange={[100, 0]} position={[-.6,.37,.18]} center style={{pointerEvents:'none',fontSize:22,fontWeight:700,fontFamily:"'Oswald'",color:C,userSelect:'none',textShadow:`0 0 14px ${C}`}}>A</Html>
-      {/* Name lines */}
-      {[.1,-.12].map((dy,i)=>(
-        <mesh key={i} position={[.22,.38+dy,.1]}><planeGeometry args={[.72-.2*i,.045]}/><meshBasicMaterial color={C} opacity={.55-.1*i} transparent/></mesh>
-      ))}
-      {/* Data rows */}
-      {[0,-.26,-.52,-.78].map((dy,i)=>(
-        <mesh key={i} position={[0,-.15+dy,.095]}><planeGeometry args={[1.65-.12*i,.038]}/><meshBasicMaterial color="#24385a" opacity={.45} transparent/></mesh>
-      ))}
-      {/* Scan line (animated) */}
-      <mesh ref={scanRef} position={[0,0,.12]}><planeGeometry args={[1.85,.018]}/><meshBasicMaterial color={C} opacity={.55} transparent/></mesh>
-      {/* Clip zone so scan stays inside (visual trick — front blocking planes outside scan area) */}
-
-      {/* Pulse ring under */}
-      <mesh ref={ringRef} position={[0,0,-.1]} rotation={[Math.PI/2,0,0]}>
-        <torusGeometry args={[1.2,.02,6,48]}/>
-        <meshBasicMaterial color={C} transparent opacity={.35}/>
-      </mesh>
-
-      {/* Glow circle on ground */}
-      <mesh position={[0,-1.98,0]} rotation={[-Math.PI/2,0,0]}>
-        <circleGeometry args={[1.6,36]}/>
-        <meshBasicMaterial color={C} transparent opacity={(hov||isActive) ? 0.15 : 0.06}/>
-      </mesh>
-
-      <Html zIndexRange={[100, 0]} position={[0,-2.25,0]} center distanceFactor={10} style={{pointerEvents:'none',fontFamily:"'Oswald'",fontSize:24,letterSpacing:'.35em',textTransform:'uppercase',color:hov||isActive?C:`${C}70`,whiteSpace:'nowrap',userSelect:'none',textShadow:'0 2px 10px rgba(0,0,0,0.8)'}}>Profile</Html>
-    </group>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// PROJECTS — Rotating data core with concentric rings
-// ─────────────────────────────────────────────────────────────────────────────
-function ProjectsStation({ position, onActivate, isActive }) {
-  const root=useRef(); const ring1=useRef(); const ring2=useRef(); const ring3=useRef();
-  const coreRef=useRef(); const glowRef=useRef();
-  const [hov,setHov]=useState(false);
-
-  useFrame((state)=>{
-    const t=state.clock.elapsedTime;
-    if(!root.current) return;
-    root.current.position.y=position[1]+Math.sin(t*.55+1)*.13;
-    if(ring1.current){ring1.current.rotation.z=t*.6; ring1.current.rotation.x=Math.sin(t*.2)*.2;}
-    if(ring2.current){ring2.current.rotation.z=-t*.4; ring2.current.rotation.y=t*.3;}
-    if(ring3.current){ring3.current.rotation.y=t*.5; ring3.current.rotation.z=Math.sin(t*.35)*.15;}
-    if(coreRef.current){coreRef.current.rotation.y=t*.8; const p=.5+Math.sin(t*2)*.5; coreRef.current.material.emissiveIntensity=(hov||isActive)?1.2+p*.8:.4+p*.3;}
-    if (glowRef.current) {
-      glowRef.current.material.opacity = (hov || isActive)
-        ? (0.18 + Math.sin(t * 1.5) * 0.07)
-        : 0.04;
-    }
-  });
-
-  const oe=()=>{setHov(true);document.body.style.cursor='pointer';audio.hover();if(root.current) gsap.to(root.current.scale,{x:1.07,y:1.07,z:1.07,duration:.3,ease:'power2.out'});};
-  const ol=()=>{setHov(false);document.body.style.cursor='auto';if(root.current) gsap.to(root.current.scale,{x:1,y:1,z:1,duration:.3});};
-
-  const C='#D4A843';
-  return (
-    <group ref={root} position={position} onPointerEnter={oe} onPointerLeave={ol} onClick={()=>{audio.click();onActivate();}}>
-      {/* Glow sphere */}
-      <mesh ref={glowRef}><sphereGeometry args={[1.8,12,12]}/><meshBasicMaterial color={C} transparent opacity={.04} side={THREE.DoubleSide}/></mesh>
-
-      {/* Core dodecahedron */}
-      <mesh ref={coreRef}><dodecahedronGeometry args={[.55]}/><meshStandardMaterial color="#1a0f00" roughness={.15} metalness={.9} emissive={C} emissiveIntensity={(hov||isActive)?1.6:.5}/></mesh>
-
-      {/* Ring 1 — main horizontal */}
-      <mesh ref={ring1}><torusGeometry args={[.95,.035,10,64]}/><meshStandardMaterial color={C} emissive={C} emissiveIntensity={(hov||isActive)?1.8:.7} roughness={.2}/></mesh>
-
-      {/* Ring 2 — tilted */}
-      <mesh ref={ring2} rotation={[Math.PI/2.8,0,0]}><torusGeometry args={[1.25,.025,8,56]}/><meshStandardMaterial color={C} emissive={C} emissiveIntensity={(hov||isActive)?1.2:.4} transparent opacity={.8}/></mesh>
-
-      {/* Ring 3 — polar orbit */}
-      <mesh ref={ring3} rotation={[0,0,Math.PI/2]}><torusGeometry args={[1.55,.018,6,48]}/><meshStandardMaterial color={C} emissive={C} emissiveIntensity={.3} transparent opacity={.45}/></mesh>
-
-      {/* Data layer discs — stacked */}
-      {[-0.15,0,.15].map((dz,i)=>(
-        <mesh key={i} rotation={[Math.PI/2,0,0]} position={[0,0,dz]}>
-          <ringGeometry args={[.25+i*.18,.3+i*.18,32]}/>
-          <meshBasicMaterial color={C} transparent opacity={.18-.04*i}/>
+      <group scale={1.2}>
+        {/* Floor Decking */}
+        <mesh position={[0, -0.85, 0]}>
+          <boxGeometry args={[4.4, 0.2, 3.0]}/>
+          <meshLambertMaterial color="#1e293b"/>
         </mesh>
-      ))}
 
-      {/* Glow circle on ground */}
-      <mesh position={[0,-1.98,0]} rotation={[-Math.PI/2,0,0]}>
-        <circleGeometry args={[1.5,36]}/>
-        <meshBasicMaterial color={C} transparent opacity={(hov||isActive) ? 0.15 : 0.06}/>
-      </mesh>
+        {/* Solid Back Wall */}
+        <mesh position={[0, 0.6, -1.4]}>
+          <boxGeometry args={[4.4, 3.2, 0.2]}/>
+          <meshLambertMaterial color="#0b0f19"/>
+        </mesh>
 
-      <Html zIndexRange={[100, 0]} position={[0,-2.25,0]} center distanceFactor={10} style={{pointerEvents:'none',fontFamily:"'Oswald'",fontSize:24,letterSpacing:'.35em',textTransform:'uppercase',color:hov||isActive?C:`${C}70`,whiteSpace:'nowrap',userSelect:'none',textShadow:'0 2px 10px rgba(0,0,0,0.8)'}}>Projects</Html>
-    </group>
-  );
-}
+        {/* Solid Side Walls */}
+        <mesh position={[-2.1, 0.6, 0]}>
+          <boxGeometry args={[0.2, 3.2, 3.0]}/>
+          <meshLambertMaterial color="#0f172a"/>
+        </mesh>
+        <mesh position={[2.1, 0.6, 0]}>
+          <boxGeometry args={[0.2, 3.2, 3.0]}/>
+          <meshLambertMaterial color="#0f172a"/>
+        </mesh>
 
-// ─────────────────────────────────────────────────────────────────────────────
-// SKILLS — Vertical stacked bar tower with animated levels
-// ─────────────────────────────────────────────────────────────────────────────
-function SkillsStation({ position, onActivate, isActive }) {
-  const root=useRef(); const barsRef=useRef([]); const ringRef=useRef();
-  const [hov,setHov]=useState(false);
+        {/* Sloped Awning / Roof */}
+        <mesh position={[0, 2.3, -0.2]} rotation={[0.1, 0, 0]}>
+          <boxGeometry args={[4.6, 0.2, 3.4]}/>
+          <meshLambertMaterial color="#1e293b"/>
+        </mesh>
 
-  const C='#6AC46A';
-  const barData=[
-    {h:.72,c:'#4A90D9'},{h:.62,c:C},{h:.78,c:'#D4A843'},{h:.55,c:'#D46A6A'},
-  ];
+        {/* Front Counter Structure */}
+        <mesh position={[0, -0.3, 0.6]}>
+          <boxGeometry args={[3.8, 1.0, 0.8]}/>
+          <meshLambertMaterial color="#334155"/>
+        </mesh>
+        <mesh position={[0, 0.25, 0.6]}>
+          <boxGeometry args={[4.0, 0.1, 1.0]}/>
+          <meshLambertMaterial color="#475569"/>
+        </mesh>
 
-  useFrame((state)=>{
-    const t=state.clock.elapsedTime;
-    if(!root.current) return;
-    root.current.position.y=position[1]+Math.sin(t*.6+2)*.12;
-    root.current.rotation.y=Math.sin(t*.24+1)*.06;
-    barsRef.current.forEach((b,i)=>{
-      if(!b) return;
-      const pulse=.92+Math.sin(t*1.1+i*.9)*.08;
-      b.scale.y=pulse;
-    });
-    if(ringRef.current){const p=((t*.4+2)%1); ringRef.current.scale.setScalar(1+p*.7); ringRef.current.material.opacity=.3*(1-p);}
-  });
+        {/* Glowing Counter Accent Strip */}
+        <mesh position={[0, 0.1, 1.01]}>
+          <boxGeometry args={[4.0, 0.05, 0.05]}/>
+          <meshLambertMaterial color={C} emissive={C} emissiveIntensity={(hov||isActive)?1.2:0.4}/>
+        </mesh>
 
-  const oe=()=>{setHov(true);document.body.style.cursor='pointer';audio.hover();if(root.current) gsap.to(root.current.scale,{x:1.06,y:1.06,z:1.06,duration:.3,ease:'power2.out'});};
-  const ol=()=>{setHov(false);document.body.style.cursor='auto';if(root.current) gsap.to(root.current.scale,{x:1,y:1,z:1,duration:.3});};
+        {/* Human Avatar Standing in front of counter */}
+        <group position={[-1.0, -0.65, 1.4]} rotation={[0, 0.3, 0]}>
+          {/* Torso */}
+          <mesh position={[0, 0.6, 0]}><boxGeometry args={[0.3, 0.4, 0.15]}/><meshLambertMaterial color="#3b82f6"/></mesh>
+          {/* Head */}
+          <mesh position={[0, 0.95, 0]}><boxGeometry args={[0.2, 0.25, 0.2]}/><meshLambertMaterial color="#fcd34d"/></mesh>
+          {/* Legs */}
+          <mesh position={[-0.08, 0.2, 0]}><boxGeometry args={[0.1, 0.4, 0.1]}/><meshLambertMaterial color="#1e293b"/></mesh>
+          <mesh position={[0.08, 0.2, 0]}><boxGeometry args={[0.1, 0.4, 0.1]}/><meshLambertMaterial color="#1e293b"/></mesh>
+          {/* Arms */}
+          <mesh position={[-0.2, 0.6, 0]} rotation={[0, 0, 0.2]}><boxGeometry args={[0.1, 0.35, 0.1]}/><meshLambertMaterial color="#3b82f6"/></mesh>
+          <mesh position={[0.2, 0.6, 0]} rotation={[0, 0, -0.2]}><boxGeometry args={[0.1, 0.35, 0.1]}/><meshLambertMaterial color="#3b82f6"/></mesh>
+        </group>
 
-  return (
-    <group ref={root} position={position} onPointerEnter={oe} onPointerLeave={ol} onClick={()=>{audio.click();onActivate();}}>
-      {/* Base platform */}
-      <mesh position={[0,-1.1,0]}><boxGeometry args={[1.8,.08,1.2]}/><meshStandardMaterial color="#080f08" roughness={.9} emissive={C} emissiveIntensity={(hov||isActive) ? 0.15 : 0.04}/></mesh>
-
-      {/* Animated vertical bars (each has 3D depth) */}
-      {barData.map((d,i)=>(
-        <group key={i} position={[-0.67+i*.44,-.55+d.h/2,0]} ref={el=>barsRef.current[i]=el}>
-          <mesh>
-            <boxGeometry args={[.28,d.h,.28]}/>
-            <meshStandardMaterial color="#040a04" roughness={.9} emissive={d.c} emissiveIntensity={(hov||isActive) ? 0.9 : 0.3}/>
+        {/* Holographic Datapads Floating above counter */}
+        <group position={[0.5, 0.8, 0.5]}>
+          <mesh position={[-0.8, 0, 0]} rotation={[0, 0.2, 0]}>
+            <planeGeometry args={[1.2, 0.8]}/>
+            <meshBasicMaterial color={C} transparent opacity={(hov||isActive)?0.6:0.2} side={THREE.DoubleSide}/>
           </mesh>
-          {/* Top cap glow */}
-          <mesh position={[0,d.h/2,0]}>
-            <boxGeometry args={[.28,.04,.28]}/>
-            <meshStandardMaterial color={d.c} emissive={d.c} emissiveIntensity={(hov||isActive)?2:1}/>
-          </mesh>
-          {/* Inner light core */}
-          <mesh position={[0,0,0]}>
-            <boxGeometry args={[.14,d.h*.8,.14]}/>
-            <meshBasicMaterial color={d.c} transparent opacity={.12}/>
+          <mesh position={[0.8, 0, 0]} rotation={[0, -0.2, 0]}>
+            <planeGeometry args={[1.2, 0.8]}/>
+            <meshBasicMaterial color={C} transparent opacity={(hov||isActive)?0.6:0.2} side={THREE.DoubleSide}/>
           </mesh>
         </group>
-      ))}
 
-      {/* Frame around bars */}
-      {[-0.88, 0.88].map((x,i)=>(
-        <mesh key={i} position={[x,-0.55,0]}><boxGeometry args={[.025,2.2,.025]}/><meshStandardMaterial color={C} emissive={C} emissiveIntensity={(hov||isActive) ? 0.8 : 0.2}/></mesh>
-      ))}
-
-      {/* Header label */}
-      <mesh position={[0,.88,0]}><boxGeometry args={[1.8,.18,.08]}/><meshStandardMaterial color={C} emissive={C} emissiveIntensity={(hov||isActive)?1:.3}/></mesh>
-      <Html zIndexRange={[100, 0]} position={[0,.89,.06]} center style={{pointerEvents:'none',fontFamily:"'Oswald'",fontSize:10,fontWeight:700,letterSpacing:'.3em',textTransform:'uppercase',color:'#000',userSelect:'none'}}>ABILITIES</Html>
-
-      {/* Pulse ring */}
-      <mesh ref={ringRef} position={[0,-1.1,0]} rotation={[-Math.PI/2,0,0]}>
-        <torusGeometry args={[1.1,.02,6,40]}/><meshBasicMaterial color={C} transparent opacity={.3}/>
-      </mesh>
-
-      {/* Ground glow */}
-      <mesh position={[0,-1.98,0]} rotation={[-Math.PI/2,0,0]}>
-        <circleGeometry args={[1.4,36]}/>
-        <meshBasicMaterial color={C} transparent opacity={(hov||isActive) ? 0.15 : 0.06}/>
-      </mesh>
-
-      <Html zIndexRange={[100, 0]} position={[0,-2.25,0]} center distanceFactor={10} style={{pointerEvents:'none',fontFamily:"'Oswald'",fontSize:24,letterSpacing:'.35em',textTransform:'uppercase',color:hov||isActive?C:`${C}70`,whiteSpace:'nowrap',userSelect:'none',textShadow:'0 2px 10px rgba(0,0,0,0.8)'}}>Skills</Html>
+        {/* Roof Glowing Sign Geometry & Text */}
+        <mesh position={[0, 2.5, 1.6]} ref={glowRef}>
+          <boxGeometry args={[2.0, 0.6, 0.1]}/>
+          <meshBasicMaterial color={C} transparent opacity={0.2}/>
+        </mesh>
+        <Html zIndexRange={[100, 0]} position={[0, 2.5, 1.7]} center transform style={{pointerEvents:'none',fontFamily:"'Oswald'",fontSize:20,fontWeight:900,letterSpacing:'.3em',color:'#fff',textShadow:`0 0 16px ${C}`}}>PROFILE</Html>
+      </group>
     </group>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CONTACT — Sci-Fi Comm Terminal
+// PROJECTS — Tech Van / Mobile Workstation
 // ─────────────────────────────────────────────────────────────────────────────
-function ContactStation({ position, onActivate, isActive }) {
-  const root=useRef(); const p1=useRef(); const p2=useRef(); const p3=useRef();
-  const screenRef=useRef();
+function ProjectsStation({ position, rotation, onActivate, isActive }) {
+  const root=useRef(); const diskRef=useRef(); const screensRef=useRef([]);
   const [hov,setHov]=useState(false);
+  const C='#D4A843';
 
   useFrame((state)=>{
     const t=state.clock.elapsedTime;
     if(!root.current) return;
-    root.current.position.y=position[1]+Math.sin(t*.5+3)*.13;
-    // Staggered pulse rings
-    [[p1,0],[p2,.7],[p3,1.4]].forEach(([r,offset])=>{
-      if(!r.current || !r.current.material) return;
-      const pg=((t*.7+offset)%2.1)/2.1;
-      r.current.scale.setScalar(1+pg*1.4);
-      r.current.material.opacity=.4*(1-pg);
-    });
-    if(screenRef.current && screenRef.current.material) screenRef.current.material.opacity = (hov||isActive) ? 0.8 + Math.sin(t*4)*0.2 : 0.4;
+    root.current.position.y=position[1]+Math.sin(t*.5)*.06;
+    if(diskRef.current) diskRef.current.rotation.y = t*0.8;
   });
 
   const oe=()=>{setHov(true);document.body.style.cursor='pointer';audio.hover();if(root.current) gsap.to(root.current.scale,{x:1.06,y:1.06,z:1.06,duration:.3,ease:'power2.out'});};
   const ol=()=>{setHov(false);document.body.style.cursor='auto';if(root.current) gsap.to(root.current.scale,{x:1,y:1,z:1,duration:.3});};
 
-  const C='#D46A6A';
   return (
-    <group ref={root} position={position} onPointerEnter={oe} onPointerLeave={ol} onClick={()=>{audio.click();onActivate();}}>
-      {/* Heavy Base block */}
-      <mesh position={[0,-.8,0]}>
-        <cylinderGeometry args={[.7,.9,.4,8]}/>
-        <meshStandardMaterial color="#080303" roughness={.9}/>
-      </mesh>
-      <mesh position={[0,-.6,0]}>
-        <cylinderGeometry args={[.6,.7,.2,8]}/>
-        <meshStandardMaterial color="#140505" roughness={.8} emissive={C} emissiveIntensity={(hov||isActive) ? 0.2 : 0.05}/>
-      </mesh>
+    <group ref={root} position={position} rotation={rotation} onPointerEnter={oe} onPointerLeave={ol} onClick={()=>{audio.click();onActivate();}}>
+      {/* Grounding Shadow Plane */}
+      <mesh position={[0,-0.9,0]} rotation={[-Math.PI/2,0,0]}><circleGeometry args={[2.8, 32]}/><meshBasicMaterial color="#000" transparent opacity={0.6}/></mesh>
 
-      {/* Main console body - angled */}
-      <mesh position={[0, .1, .1]} rotation={[-.2, 0, 0]}>
-        <boxGeometry args={[1, 1.4, .6]}/>
-        <meshStandardMaterial color="#0d0505" roughness={.9}/>
-      </mesh>
+      <group scale={1.25}>
+        {/* Main Back Body (Tech Van box) */}
+        <mesh position={[-0.2, 0.15, 0]}><boxGeometry args={[2.8, 1.6, 1.6]}/><meshLambertMaterial color="#f8fafc"/></mesh>
+        
+        {/* Accent Stripes */}
+        <mesh position={[-0.2, -0.05, 0.81]}><boxGeometry args={[2.8, 0.2, 0.05]}/><meshLambertMaterial color={C}/></mesh>
+        <mesh position={[-0.2, -0.05, -0.81]}><boxGeometry args={[2.8, 0.2, 0.05]}/><meshLambertMaterial color={C}/></mesh>
 
-      {/* Side panels */}
-      {[-.55, .55].map((x,i)=>(
-        <mesh key={i} position={[x, .1, .15]} rotation={[-.2, 0, 0]}>
-          <boxGeometry args={[.1, 1.5, .7]}/>
-          <meshStandardMaterial color="#1a0808" roughness={.8} emissive={C} emissiveIntensity={(hov||isActive) ? 0.3 : 0.1}/>
+        {/* Front Cabin */}
+        <mesh position={[1.8, -0.15, 0]}><boxGeometry args={[1.2, 1.0, 1.4]}/><meshLambertMaterial color="#f8fafc"/></mesh>
+        
+        {/* Windshield */}
+        <mesh position={[1.5, 0.45, 0]} rotation={[0, 0, 0.4]}><boxGeometry args={[0.5, 0.4, 1.3]}/><meshLambertMaterial color="#0f172a" roughness={0.1}/></mesh>
+
+        {/* Side Windows */}
+        <mesh position={[1.8, 0.15, 0.71]}><boxGeometry args={[0.6, 0.4, 0.05]}/><meshLambertMaterial color="#0f172a"/></mesh>
+        <mesh position={[1.8, 0.15, -0.71]}><boxGeometry args={[0.6, 0.4, 0.05]}/><meshLambertMaterial color="#0f172a"/></mesh>
+
+        {/* Headlights & Grill */}
+        <mesh position={[2.41, -0.25, 0.5]}><boxGeometry args={[0.05, 0.2, 0.3]}/><meshLambertMaterial color="#fff" emissive="#fff" emissiveIntensity={0.8}/></mesh>
+        <mesh position={[2.41, -0.25, -0.5]}><boxGeometry args={[0.05, 0.2, 0.3]}/><meshLambertMaterial color="#fff" emissive="#fff" emissiveIntensity={0.8}/></mesh>
+        <mesh position={[2.42, -0.25, 0]}><boxGeometry args={[0.05, 0.3, 0.6]}/><meshLambertMaterial color="#111"/></mesh>
+
+        {/* Wheels & Hubcaps */}
+        {[-1.0, 1.6].map((x) => (
+          <group key={x}>
+            <mesh position={[x, -0.55, -0.75]} rotation={[-Math.PI/2, 0, 0]}><cylinderGeometry args={[0.35, 0.35, 0.3, 12]}/><meshLambertMaterial color="#050505"/></mesh>
+            <mesh position={[x, -0.55, 0.75]} rotation={[-Math.PI/2, 0, 0]}><cylinderGeometry args={[0.35, 0.35, 0.3, 12]}/><meshLambertMaterial color="#050505"/></mesh>
+            <mesh position={[x, -0.55, -0.91]} rotation={[-Math.PI/2, 0, 0]}><cylinderGeometry args={[0.15, 0.15, 0.05, 8]}/><meshLambertMaterial color="#94a3b8"/></mesh>
+            <mesh position={[x, -0.55, 0.91]} rotation={[-Math.PI/2, 0, 0]}><cylinderGeometry args={[0.15, 0.15, 0.05, 8]}/><meshLambertMaterial color="#94a3b8"/></mesh>
+          </group>
+        ))}
+
+        {/* Antenna base */}
+        <mesh position={[-1.0, 1.05, 0]}><cylinderGeometry args={[0.1, 0.1, 0.4]}/><meshLambertMaterial color="#333"/></mesh>
+        <group position={[-1.0, 1.35, 0]} ref={diskRef} rotation={[-0.3, 0, 0]}>
+          <mesh><cylinderGeometry args={[0.6, 0.6, 0.05, 8]}/><meshLambertMaterial color="#555"/></mesh>
+          <mesh position={[0,0.1,0]}><sphereGeometry args={[0.1]}/><meshBasicMaterial color={C} /></mesh>
+        </group>
+      </group>
+
+      {/* Hovering Screens */}
+      {[-0.8, 0, 0.8].map((x, i) => (
+        <mesh key={i} position={[x, 1.45 + (i%2)*0.4, 1.0]} rotation={[-0.1, i*0.2, 0]}>
+          <planeGeometry args={[0.8, 0.5]}/>
+          <meshBasicMaterial color={C} transparent opacity={(hov||isActive)?0.7:0.3} side={THREE.DoubleSide}/>
         </mesh>
       ))}
 
-      {/* Glowing screen */}
-      <Html zIndexRange={[100, 0]} position={[0,-2.25,0]} center distanceFactor={10} style={{pointerEvents:'none',fontFamily:"'Oswald'",fontSize:24,letterSpacing:'.35em',textTransform:'uppercase',color:hov||isActive?C:`${C}70`,whiteSpace:'nowrap',userSelect:'none',textShadow:'0 2px 10px rgba(0,0,0,0.8)'}}>Contact</Html>
+      {/* Universal 3D Branding Sign */}
+<mesh position={[0, 2.5, 0]} rotation={[0, 0.78, 0]}> {/* <--- Changed: Added rotation */}
+        <boxGeometry args={[3.2, 0.8, 0.1]}/>
+        <meshBasicMaterial color={C} transparent opacity={0.15}/>
+      </mesh>
+      
+      <Html 
+        zIndexRange={[100, 0]} 
+        position={[0, 2.5, 0.1]} 
+        rotation={[0, 0.78, 0]} 
+        center 
+        transform 
+        style={{pointerEvents:'none',fontFamily:"'Oswald'",fontSize:28,fontWeight:900,letterSpacing:'.3em',color:'#fff',textShadow:`0 0 16px ${C}`}}
+      >
+        PROJECTS
+      </Html>
+      <mesh position={[0,-1.98,0]} rotation={[-Math.PI/2,0,0]}><circleGeometry args={[2.5,32]}/><meshBasicMaterial color={C} transparent opacity={(hov||isActive) ? 0.2 : 0.05}/></mesh>
     </group>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CERTIFICATIONS — Holographic accreditation slab
+// SKILLS — Circular Glowing Lab / Bench
 // ─────────────────────────────────────────────────────────────────────────────
-function CertificationsStation({ position, onActivate, isActive }) {
-  const root = useRef(); const screenRef = useRef();
+function SkillsStation({ position, rotation, onActivate, isActive }) {
+  const root=useRef(); const benchRef=useRef();
+  const [hov,setHov]=useState(false);
+  const C='#6AC46A';
+  
+  useFrame((state)=>{
+    const t=state.clock.elapsedTime;
+    if(!root.current) return;
+    root.current.position.y=position[1]+Math.sin(t*.5)*.06;
+    if(benchRef.current) benchRef.current.rotation.y = t*0.2;
+  });
+
+  const oe=()=>{setHov(true);document.body.style.cursor='pointer';audio.hover();if(root.current) gsap.to(root.current.scale,{x:1.06,y:1.06,z:1.06,duration:.3,ease:'power2.out'});};
+  const ol=()=>{setHov(false);document.body.style.cursor='auto';if(root.current) gsap.to(root.current.scale,{x:1,y:1,z:1,duration:.3});};
+
+  return (
+    <group ref={root} position={position} rotation={rotation} onPointerEnter={oe} onPointerLeave={ol} onClick={()=>{audio.click();onActivate();}}>
+      {/* Grounding Shadow Plane */}
+      <mesh position={[0,-1.1,0]} rotation={[-Math.PI/2,0,0]}><circleGeometry args={[2.2, 32]}/><meshBasicMaterial color="#000" transparent opacity={0.6}/></mesh>
+
+      <mesh position={[0,-0.8,0]}><cylinderGeometry args={[1.6, 1.8, 0.4, 12]}/><meshLambertMaterial color="#080f08"/></mesh>
+      <mesh position={[0,-0.59,0]} rotation={[-Math.PI/2,0,0]}><ringGeometry args={[1.2, 1.4, 12]}/><meshBasicMaterial color={C}/></mesh>
+      <mesh position={[0,-0.2,0]}><cylinderGeometry args={[0.4, 0.6, 1.2, 8]}/><meshLambertMaterial color="#040a04"/></mesh>
+      
+      <group position={[0, 0.4, 0]} ref={benchRef}>
+        <mesh><cylinderGeometry args={[1.4, 1.4, 0.1, 10]}/><meshLambertMaterial color="#0f1f0f"/></mesh>
+        
+        {[-1.0, 0, 1.0].map((x, i) => 
+          [-1.0, 0, 1.0].map((z, j) => {
+            if(x===0 && z===0) return null;
+            return (
+              <mesh key={`${x}-${z}`} position={[x, 0.5, z]}>
+                <boxGeometry args={[0.2, 0.2, 0.2]}/>
+                <meshBasicMaterial color={C} wireframe/>
+              </mesh>
+            );
+          })
+        )}
+      </group>
+
+      <mesh position={[0,-1.98,0]} rotation={[-Math.PI/2,0,0]}><circleGeometry args={[2.0,32]}/><meshBasicMaterial color={C} transparent opacity={(hov||isActive) ? 0.2 : 0.05}/></mesh>
+
+      {/* Universal 3D Branding Sign */}
+<mesh position={[0, 2.5, 0]} rotation={[0, 0.26, 0]}> {/* Added rotation */}
+        <boxGeometry args={[2.8, 0.8, 0.1]}/>
+        <meshBasicMaterial color={C} transparent opacity={0.15}/>
+      </mesh>
+      
+      <Html 
+        zIndexRange={[100, 0]} 
+        position={[0, 2.5, 0.1]} 
+        rotation={[0, -1, 0]} // Added rotation here too
+        center 
+        transform 
+        style={{pointerEvents:'none',fontFamily:"'Oswald'",fontSize:28,fontWeight:900,letterSpacing:'.3em',color:'#fff',textShadow:`0 0 16px ${C}`}}
+      >
+        SKILLS
+      </Html>
+    </group>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CONTACT — Cinematic Telephone Booth
+// ─────────────────────────────────────────────────────────────────────────────
+function ContactStation({ position, rotation, onActivate, isActive }) {
+  const root=useRef();
+  const [hov,setHov]=useState(false);
+  const C='#D46A6A';
+
+  useFrame((state)=>{
+    if(!root.current) return;
+    root.current.position.y=position[1]+Math.sin(state.clock.elapsedTime*.5+3)*.08;
+  });
+
+  const oe=()=>{setHov(true);document.body.style.cursor='pointer';audio.hover();if(root.current) gsap.to(root.current.scale,{x:1.06,y:1.06,z:1.06,duration:.3,ease:'power2.out'});};
+  const ol=()=>{setHov(false);document.body.style.cursor='auto';if(root.current) gsap.to(root.current.scale,{x:1,y:1,z:1,duration:.3});};
+
+  return (
+    <group ref={root} position={position} rotation={rotation} onPointerEnter={oe} onPointerLeave={ol} onClick={()=>{audio.click();onActivate();}}>
+      {/* Grounding Shadow Plane */}
+      <mesh position={[0,-1.3,0]} rotation={[-Math.PI/2,0,0]}><circleGeometry args={[1.8, 32]}/><meshBasicMaterial color="#000" transparent opacity={0.6}/></mesh>
+
+      <group scale={0.95}>
+        {/* Concrete platform base */}
+        <mesh position={[0,-1.05,0]}><boxGeometry args={[1.8, 0.1, 1.8]}/><meshLambertMaterial color="#2d3748"/></mesh>
+
+        {/* Booth Base Floor */}
+        <mesh position={[0,-0.9,0]}><boxGeometry args={[1.4, 0.2, 1.4]}/><meshLambertMaterial color="#b91c1c"/></mesh>
+        
+        {/* 4 Corner Pillars (Red) */}
+        {[-0.6, 0.6].map((x) => 
+          [-0.6, 0.6].map((z) => (
+            <mesh key={`${x}-${z}`} position={[x, 0.3, z]}>
+              <boxGeometry args={[0.15, 2.2, 0.15]}/>
+              <meshLambertMaterial color="#b91c1c"/>
+            </mesh>
+          ))
+        )}
+
+        {/* Translucent Glass Panes */}
+        <mesh position={[0, 0.3, 0]}>
+          <boxGeometry args={[1.25, 2.1, 1.25]}/>
+          <meshBasicMaterial color="#38bdf8" transparent opacity={(hov||isActive)?0.3:0.15}/>
+        </mesh>
+
+        {/* Booth Roof */}
+        <mesh position={[0, 1.5, 0]}><boxGeometry args={[1.45, 0.2, 1.45]}/><meshLambertMaterial color="#b91c1c"/></mesh>
+        <mesh position={[0, 1.7, 0]}><boxGeometry args={[1.0, 0.2, 1.0]}/><meshLambertMaterial color="#b91c1c" roughness={0.7}/></mesh>
+        <mesh position={[0, 1.85, 0]}><sphereGeometry args={[0.15]}/><meshLambertMaterial color="#f87171"/></mesh>
+
+        {/* Telephone inside */}
+        <mesh position={[0, 0.4, -0.4]}><boxGeometry args={[0.4, 0.6, 0.15]}/><meshLambertMaterial color="#111"/></mesh>
+        {/* Glowing Screen/Buttons inside */}
+        <mesh position={[0, 0.5, -0.32]}><boxGeometry args={[0.2, 0.3, 0.05]}/><meshLambertMaterial color={C} emissive={C} emissiveIntensity={(hov||isActive)?1.1:0.4}/></mesh>
+
+        {/* Universal 3D Branding Sign (Contact) placed atop the Booth */}
+        <mesh position={[0, 2.8, 0]}>
+          <boxGeometry args={[3.2, 0.8, 0.1]}/>
+          <meshBasicMaterial color={C} transparent opacity={0.15}/>
+        </mesh>
+        <Html zIndexRange={[100, 0]} position={[0, 2.8, 0.1]} center transform style={{pointerEvents:'none',fontFamily:"'Oswald'",fontSize:28,fontWeight:900,letterSpacing:'.3em',color:'#fff',textShadow:`0 0 16px ${C}`}}>CONTACT</Html>
+      </group>
+
+      <mesh position={[0,-1.98,0]} rotation={[-Math.PI/2,0,0]}><circleGeometry args={[1.4,32]}/><meshBasicMaterial color={C} transparent opacity={(hov||isActive) ? 0.2 : 0.08}/></mesh>
+    </group>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CERTIFICATIONS — Solid Trophy Wall Diorama
+// ─────────────────────────────────────────────────────────────────────────────
+function CertificationsStation({ position, rotation, onActivate, isActive }) {
+  const root = useRef();
   const [hov, setHov] = useState(false);
+  const C = '#B388FF';
   
   useFrame((state) => {
-    const t = state.clock.elapsedTime;
     if (!root.current) return;
-    root.current.position.y = position[1] + Math.sin(t * 0.8 + 2) * 0.12;
-    if (screenRef.current) screenRef.current.material.opacity = 0.4 + Math.sin(t * 3)*0.1;
+    root.current.position.y = position[1] + Math.sin(state.clock.elapsedTime * 0.4 + 2) * 0.05;
   });
 
   const oe = () => { setHov(true); document.body.style.cursor='pointer'; audio.hover(); if(root.current) gsap.to(root.current.scale,{x:1.05,y:1.05,z:1.05,duration:.3,ease:'power2.out'}); };
   const ol = () => { setHov(false); document.body.style.cursor='auto'; if(root.current) gsap.to(root.current.scale,{x:1,y:1,z:1,duration:.3}); };
 
-  const C = '#B388FF';
   return (
-    <group ref={root} position={position} onPointerEnter={oe} onPointerLeave={ol} onClick={()=>{audio.click();onActivate();}}>
-      <mesh><boxGeometry args={[1.5, 2.5, 0.2]}/><meshStandardMaterial color="#060c18" roughness={0.9} metalness={0.1}/></mesh>
-      {[-0.76, 0.76].map((x,i)=>(<mesh key={i} position={[x,0,0]}><boxGeometry args={[0.04, 2.5, 0.22]}/><meshStandardMaterial color={C} emissive={C} emissiveIntensity={(hov||isActive)?1:.4}/></mesh>))}
-      
-      {/* Target screen */}
-      <mesh ref={screenRef} position={[0, 0.5, 0.12]}><planeGeometry args={[1.2, 1.0]}/><meshBasicMaterial color={C} transparent opacity={0.5}/></mesh>
-      
-      <Html zIndexRange={[100, 0]} position={[0, 0.5, 0.14]} center transform style={{pointerEvents:'none',fontFamily:"'Share Tech Mono',monospace",fontSize:10,color:'#fff',userSelect:'none',textShadow:`0 0 6px ${C}`}}>
-        <div>ACCREDITATION</div>
-        <div>VERIFIED</div>
-      </Html>
+    <group ref={root} position={position} rotation={rotation} onPointerEnter={oe} onPointerLeave={ol} onClick={()=>{audio.click();onActivate();}}>
+      {/* Grounding Shadow Plane */}
+      <mesh position={[0,-1.0,0]} rotation={[-Math.PI/2,0,0]}><circleGeometry args={[3.5, 32]}/><meshBasicMaterial color="#000" transparent opacity={0.6}/></mesh>
 
-      <Html zIndexRange={[100, 0]} position={[0,-2.25,0]} center distanceFactor={10} style={{pointerEvents:'none',fontFamily:"'Oswald'",fontSize:24,letterSpacing:'.35em',textTransform:'uppercase',color:hov||isActive?C:`${C}70`,whiteSpace:'nowrap',userSelect:'none',textShadow:'0 2px 10px rgba(0,0,0,0.8)'}}>Certifications</Html>
+      <group scale={3.6}>
+        {/* Huge Pillar Supports */}
+        {[-1.6, 1.6].map((x) => (
+          <group key={x}>
+            {/* Concrete Footer */}
+            <mesh position={[x, -0.6, 0]}><cylinderGeometry args={[0.4, 0.5, 0.6, 8]}/><meshLambertMaterial color="#1e293b"/></mesh>
+            {/* Metal Pole */}
+            <mesh position={[x, 0.4, 0]}><cylinderGeometry args={[0.15, 0.15, 1.8, 8]}/><meshLambertMaterial color="#334155"/></mesh>
+          </group>
+        ))}
+
+        {/* Billboard Frame */}
+        <mesh position={[0, 1.6, 0]}><boxGeometry args={[4.8, 2.6, 0.4]}/><meshLambertMaterial color="#0f172a"/></mesh>
+
+        {/* Billboard Glowing Screen Surface */}
+        <mesh position={[0, 1.6, 0.21]}>
+          <boxGeometry args={[4.4, 2.2, 0.05]}/>
+          <meshLambertMaterial color="#0b0f19" emissive={C} emissiveIntensity={(hov||isActive)?0.4:0.1}/>
+        </mesh>
+        
+        {/* Main Text on Billboard */}
+        <Html zIndexRange={[100, 0]} position={[0, 1.6, 0.25]} center transform style={{pointerEvents:'none',fontFamily:"'Oswald'",fontSize:26,fontWeight:900,letterSpacing:'.2em',color:'#fff',textShadow:`0 0 24px ${C}`}}>CERTIFICATIONS</Html>
+      </group>
+
+      <mesh position={[0,-1.98,0]} rotation={[-Math.PI/2,0,0]}><circleGeometry args={[2.0,32]}/><meshBasicMaterial color={C} transparent opacity={(hov||isActive) ? 0.2 : 0.05}/></mesh>
     </group>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ENVIRONMENT: Road, City Buildings, Trees
+// ENVIRONMENT: Road, City Buildings, Trees, Atmospherics
 // ─────────────────────────────────────────────────────────────────────────────
+function SunsetSky() {
+  const shader = useMemo(() => new THREE.ShaderMaterial({
+    uniforms: {
+      colorTop: { value: new THREE.Color("#4a90e2") },
+      colorMid: { value: new THREE.Color("#ffb17a") },
+      colorBtm: { value: new THREE.Color("#ffe099") }
+    },
+    vertexShader: `
+      varying vec3 vWorldPosition;
+      void main() {
+        vec4 wPos = modelMatrix * vec4(position, 1.0);
+        vWorldPosition = wPos.xyz;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: `
+      uniform vec3 colorTop;
+      uniform vec3 colorMid;
+      uniform vec3 colorBtm;
+      varying vec3 vWorldPosition;
+      void main() {
+        float h = normalize(vWorldPosition).y;
+        vec3 col = mix(colorBtm, colorMid, smoothstep(-0.1, 0.25, h));
+        col = mix(col, colorTop, smoothstep(0.25, 0.6, h));
+        gl_FragColor = vec4(col, 1.0);
+      }
+    `,
+    side: THREE.BackSide,
+    fog: false
+  }), []);
+  return <mesh renderOrder={-1000}><sphereGeometry args={[150, 32, 32]}/><primitive object={shader} attach="material"/></mesh>;
+}
+
+function WindyTrees({ data }) {
+  // Removed internal frame rotation hooks from backgrounds to save CPU
+  return <>{data.map((t, i) => (
+    <group key={i} position={[t.x, 0, t.z]} scale={t.scale} rotation={[0, t.rot, 0]}>
+      <mesh position={[0, t.h/2, 0]}>
+        <cylinderGeometry args={[0.15, 0.25, t.h, 4]}/>
+        <meshLambertMaterial color="#1f110a"/>
+      </mesh>
+      <group position={[0, t.h, 0]}>
+        <mesh position={[0, 1.5, 0]}>
+          <coneGeometry args={[1.6, 3.5, 4]}/>
+          <meshLambertMaterial color="#0b2413"/>
+        </mesh>
+        <mesh position={[0, 2.8, 0]}>
+          <coneGeometry args={[1.0, 2.0, 4]}/>
+          <meshLambertMaterial color="#16381d"/>
+        </mesh>
+      </group>
+    </group>
+  ))}</>;
+}
+
+function StreetProps({ data }) {
+  return <>{data.map((l, i) => (
+    <group key={`prop-${i}`} position={[l.x, 0, l.z]}>
+      <mesh position={[0, 2.5, 0]}>
+        <cylinderGeometry args={[0.04, 0.08, 5, 4]}/>
+        <meshLambertMaterial color="#111"/>
+      </mesh>
+      <mesh position={[0, 4.8, (l.z<0?0.6:-0.6)]}>
+        <cylinderGeometry args={[0.02, 0.03, 1.4, 4]} rotation={[Math.PI/2, 0, 0]}/>
+        <meshLambertMaterial color="#111"/>
+      </mesh>
+      <mesh position={[0, 4.8, (l.z<0?1.2:-1.2)]}>
+        <boxGeometry args={[0.3, 0.08, 0.5]}/>
+        <meshLambertMaterial color="#050505"/>
+      </mesh>
+      <mesh position={[0, 4.75, (l.z<0?1.2:-1.2)]} rotation={[Math.PI/2, 0, 0]}>
+        <planeGeometry args={[0.2, 0.4]}/>
+        <meshBasicMaterial color="#FFD166"/>
+      </mesh>
+      <mesh position={[0.4, 0.4, (l.z<0?-0.6:0.6)]}>
+        <boxGeometry args={[0.4, 0.8, 0.4]}/>
+        <meshLambertMaterial color="#1c1f24"/>
+      </mesh>
+    </group>
+  ))}</>;
+}
+
 function GameEnvironment() {
   const rs = Math.random;
 
@@ -563,193 +716,162 @@ function GameEnvironment() {
     const c = document.createElement('canvas');
     c.width = 512; c.height = 512;
     const ctx = c.getContext('2d');
-    ctx.fillStyle = '#080808'; // Deep dark black for off windows
+    ctx.fillStyle = '#030408';
     ctx.fillRect(0,0,512,512);
     
-    const cols = 8; const rows = 8;
-    const wWidth = 44; const wHeight = 44;
-    const padXX = (512 - (cols * wWidth)) / (cols + 1);
-    const padYY = (512 - (rows * wHeight)) / (rows + 1);
+    const cols = 6; const rows = 12;
+    const wWidth = 50; const wHeight = 24;
+    const padX = (512 - (cols * wWidth)) / (cols + 1);
+    const padY = (512 - (rows * wHeight)) / (rows + 1);
     
-    // Some colors: mainly dark, some bright yellow/white
-    const colors = ['#080808','#080808','#080808','#080808','#080808','#080808', '#fef08a', '#ffffff', '#FFD166'];
-    
+    const colors = ['#030408','#030408','#030408','#030408','#030408', '#ffcca8', '#ffffff', '#ff9966'];
     for(let row=0; row<rows; row++) {
       for(let col=0; col<cols; col++) {
-        const x = padXX + col*(wWidth + padXX);
-        const y = padYY + row*(wHeight + padYY);
+        // Vertical stripes for modern skyscraper look
+        if (col % 2 === 0 && rs() > 0.2) continue; 
+        const x = padX + col*(wWidth + padX);
+        const y = padY + row*(wHeight + padY);
         ctx.fillStyle = colors[Math.floor(Math.random() * colors.length)];
         ctx.fillRect(x, y, wWidth, wHeight);
       }
     }
-    
     const tex = new THREE.CanvasTexture(c);
-    tex.wrapS = THREE.RepeatWrapping;
-    tex.wrapT = THREE.RepeatWrapping;
+    tex.wrapS = THREE.RepeatWrapping; tex.wrapT = THREE.RepeatWrapping;
     return tex;
   }, []);
 
-  const buildings = useMemo(() => {
-    return Array.from({length: 40}).map(() => {
-      const x = (rs() * 160) - 80; // Spread horizontally
-      const side = rs() > 0.5 ? 1 : -1;
-      const z = side === 1 ? (30 + rs() * 20) : (-18 - rs() * 15); // Strictly push boundaries away from center interaction zone Z:(0->10)
-      const width = 6 + rs() * 10;
-      const depth = 6 + rs() * 10;
-      const height = 15 + rs() * 45; // Variable tall skyscrapers
-      return { x, z, width, height, depth };
-    });
-  }, []);
 
-  const trees = useMemo(() => {
-    return Array.from({length: 24}).map(() => {
-      const x = (rs() * 160) - 80;
-      const side = rs() > 0.5 ? 1 : -1;
-      const z = side === 1 ? (20 + rs() * 10) : (-14 - rs() * 8);
-      return { x, z, h: 2 + rs(), scale: 0.8 + rs()*0.6 };
-    });
-  }, []);
+  const buildings = useMemo(() => Array.from({length: 25}).map(() => {
+    const x = (rs() * 180) - 90; 
+    const side = rs() > 0.5 ? 1 : -1;
+    // Pushed bounds further out to prevent overlapping with user's custom station placements
+    const z = side === 1 ? (45 + rs() * 25) : (-35 - rs() * 20); 
+    const width = 8 + rs() * 14;
+    const depth = 8 + rs() * 14;
+    const height = 20 + rs() * 60; 
+    const hue = (210 + rs()*30)/360; 
+    const col = new THREE.Color().setHSL(hue, 0.25, 0.65); 
+    const hasTier = rs() > 0.4;
+    
+    // Add organic asymmetry to the upper tier
+    const tierOffsetX = (rs() - 0.5) * width * 0.35;
+    const tierOffsetZ = (rs() - 0.5) * depth * 0.35;
+    
+    return { x, z, width, height, depth, col, hasTier, tierHeight: height + 10 + rs()*15, tierWidth: width*0.6, tierDepth: depth*0.6, tierOffsetX, tierOffsetZ };
+  }), []);
 
-  const lights = useMemo(() => {
+  const trees = useMemo(() => Array.from({length: 20}).map(() => {
+    const x = (rs() * 180) - 90;
+    const side = rs() > 0.5 ? 1 : -1;
+    // Pushed trees back symmetrically
+    const z = side === 1 ? (30 + rs() * 12) : (-22 - rs() * 10);
+    return { x, z, h: 2 + rs()*1.5, scale: 0.7 + rs()*0.6, rot: rs()*Math.PI*2 };
+  }), []);
+
+  const props = useMemo(() => {
     const arr = [];
-    for(let x=-24; x<=24; x+=12) {
-      arr.push({ x, z: -4.5 });
-      arr.push({ x: x+6, z: 4.5 });
+    for(let x=-48; x<=48; x+=24) { 
+      if(x !== 0) {
+        arr.push({ x: x+rs()*2, z: -5.5 });
+        arr.push({ x: x+6+rs()*2, z: 5.5 });
+      }
     }
     return arr;
   }, []);
 
   return (
     <group position={[0,-2.0,0]}>
+      <SunsetSky />
+
       {/* City Ground */}
       <mesh rotation={[-Math.PI/2,0,0]} receiveShadow>
-        <planeGeometry args={[200, 200]}/>
-        <meshStandardMaterial color="#1e293b" roughness={1} metalness={0}/>
+        <planeGeometry args={[220, 220]}/>
+        <meshStandardMaterial color="#2d3748" roughness={1} metalness={0}/>
       </mesh>
 
       {/* Main Road */}
-      <mesh rotation={[-Math.PI/2,0,0]} position={[0,0.01,0]}>
-        <planeGeometry args={[160, 12]}/>
-        <meshStandardMaterial color="#0f172a" roughness={1} metalness={0}/>
+      <mesh rotation={[-Math.PI/2,0,0]} position={[0,0.01,0]} receiveShadow>
+        <planeGeometry args={[180, 14]}/>
+        <meshStandardMaterial color="#4a5568" roughness={0.8} metalness={0.1}/>
       </mesh>
 
-      {/* Sidewalks */}
-      {[-6.5, 6.5].map((z,i) => (
-        <mesh key={`sw-${i}`} rotation={[-Math.PI/2,0,0]} position={[0,0.05,z]}>
-          <planeGeometry args={[160, 1]}/>
-          <meshStandardMaterial color="#334155" roughness={1}/>
+      {/* Faint tire marks / oil stains */}
+      {[-2.5, 2.5].map((z,i) => (
+        <mesh key={`tire-${i}`} rotation={[-Math.PI/2,0,0]} position={[0, 0.015, z]}>
+          <planeGeometry args={[180, 2]}/>
+          <meshBasicMaterial color="#050608" transparent opacity={0.15}/>
         </mesh>
+      ))}
+
+      {/* Sidewalks with depth (Curbs) */}
+      {[-7.5, 7.5].map((z,i) => (
+        <group key={`sw-${i}`} position={[0, 0.15, z]}>
+          {/* Top walkway */}
+          <mesh rotation={[-Math.PI/2,0,0]} receiveShadow>
+            <planeGeometry args={[180, 2]}/>
+            <meshStandardMaterial color="#2d3748" roughness={0.9}/>
+          </mesh>
+          {/* Vertical curb edge */}
+          <mesh position={[0, -0.075, z>0 ? -1 : 1]}>
+            <boxGeometry args={[180, 0.15, 0.05]}/>
+            <meshStandardMaterial color="#1a202c" roughness={0.8}/>
+          </mesh>
+          {/* Lightweight Guard Rails (Fences) for mid-layer depth */}
+          <mesh position={[0, 0.8, z>0 ? 0.9 : -0.9]}>
+            <boxGeometry args={[180, 0.1, 0.05]} />
+            <meshBasicMaterial color="#64748b" />
+          </mesh>
+          <mesh position={[0, 0.4, z>0 ? 0.9 : -0.9]}>
+            <boxGeometry args={[180, 0.05, 0.05]} />
+            <meshBasicMaterial color="#64748b" />
+          </mesh>
+          {Array.from({length: 36}).map((_, j) => (
+            <mesh key={`post-${j}`} position={[-85 + j*5, 0.4, z>0 ? 0.9 : -0.9]}>
+              <boxGeometry args={[0.08, 0.8, 0.08]} />
+              <meshBasicMaterial color="#475569" />
+            </mesh>
+          ))}
+        </group>
       ))}
 
       {/* Solid outer white lines */}
-      {[-5, 5].map((z,i) => (
+      {[-5.8, 5.8].map((z,i) => (
         <mesh key={`solid-${i}`} rotation={[-Math.PI/2,0,0]} position={[0,0.02,z]}>
-          <planeGeometry args={[160, 0.1]}/>
-          <meshBasicMaterial color="#f8fafc"/>
-        </mesh>
-      ))}
-
-      {/* Inner thin lines */}
-      {[-2, -2.5, 2, 2.5].map((z,i) => (
-        <mesh key={`thin-${i}`} rotation={[-Math.PI/2,0,0]} position={[0,0.02,z]}>
-          <planeGeometry args={[160, 0.05]}/>
-          <meshBasicMaterial color="#94a3b8"/>
+          <planeGeometry args={[180, 0.1]}/>
+          <meshBasicMaterial color="#94a3b8" transparent opacity={0.6}/>
         </mesh>
       ))}
 
       {/* Thick center dashes */}
-      {Array.from({length: 40}).map((_, i) => (
-        <mesh key={`dash-${i}`} rotation={[-Math.PI/2,0,0]} position={[-38 + i*2, 0.02, 0]}>
-          <planeGeometry args={[0.8, 0.2]}/>
-          <meshBasicMaterial color="#f8fafc"/>
+      {Array.from({length: 30}).map((_, i) => (
+        <mesh key={`dash-${i}`} rotation={[-Math.PI/2,0,0]} position={[-42 + i*3, 0.02, 0]}>
+          <planeGeometry args={[0.8, 0.15]}/>
+          <meshBasicMaterial color="#cbd5e1" transparent opacity={0.5}/>
         </mesh>
       ))}
 
-      {/* Boxy Trees */}
-      {trees.map((t, i) => (
-        <group key={`tree-${i}`} position={[t.x, 0, t.z]} scale={t.scale}>
-          {/* Trunk */}
-          <mesh position={[0, t.h/2, 0]} castShadow>
-            <cylinderGeometry args={[0.2, 0.2, t.h, 4]}/>
-            <meshStandardMaterial color="#78350f" roughness={1}/>
-          </mesh>
-          {/* Leaves */}
-          <mesh position={[0, t.h + 1, 0]} rotation={[0, Math.PI/4, 0]} castShadow>
-            <coneGeometry args={[1.6, 3, 4]}/>
-            <meshStandardMaterial color="#15803d" roughness={1}/>
-          </mesh>
-        </group>
-      ))}
+      <WindyTrees data={trees} />
+      <StreetProps data={props} />
 
-      {/* Background Block Buildings */}
+      {/* Multi-layered Skyscrapers - Standard basic colors to remove lighting overhead */}
       {buildings.map((b, i) => (
-        <mesh key={`bldg-${i}`} position={[b.x, b.height/2, b.z]} castShadow receiveShadow>
-          <boxGeometry args={[b.width, b.height, b.depth]}/>
-          <meshStandardMaterial map={windowTex} roughness={0.9} emissiveMap={windowTex} emissive={"#ffffff"} emissiveIntensity={0.85} />
-        </mesh>
-      ))}
-
-      {/* Street Lights */}
-      {lights.map((l, i) => (
-        <group key={`light-${i}`} position={[l.x, 0, l.z]}>
-          <mesh position={[0, 2, 0]}>
-            <cylinderGeometry args={[0.04, 0.06, 4, 6]}/>
-            <meshStandardMaterial color="#0a0a0a" roughness={0.7}/>
+        <group key={`bldg-${i}`} position={[b.x, 0, b.z]}>
+          <mesh position={[0, b.height/2, 0]}>
+            <boxGeometry args={[b.width, b.height, b.depth]}/>
+            <meshBasicMaterial color={b.col} map={windowTex} />
           </mesh>
-          {/* Arm */}
-          <mesh position={[0, 3.9, (l.z<0?0.5:-0.5)]}>
-            <cylinderGeometry args={[0.02, 0.02, 1.2, 5]} rotation={[Math.PI/2, 0, 0]}/>
-            <meshStandardMaterial color="#0a0a0a"/>
-          </mesh>
-          {/* Head */}
-          <mesh position={[0, 3.9, (l.z<0?1:-1)]}>
-            <boxGeometry args={[0.3, 0.08, 0.4]}/>
-            <meshStandardMaterial color="#050505"/>
-          </mesh>
-          {/* Light bulb surface only (Removed heavy pointLight to save WebGL max limit) */}
-          <mesh position={[0, 3.85, (l.z<0?1:-1)]} rotation={[Math.PI/2, 0, 0]}>
-            <planeGeometry args={[0.25, 0.35]}/>
-            <meshBasicMaterial color="#FFD166"/>
-          </mesh>
+          {b.hasTier && (
+            <mesh position={[b.tierOffsetX, b.tierHeight/2 + b.height/4, b.tierOffsetZ]}>
+              <boxGeometry args={[b.tierWidth, b.tierHeight/2, b.tierDepth]}/>
+              <meshBasicMaterial color={b.col} map={windowTex} />
+            </mesh>
+          )}
         </group>
       ))}
-
-      {/* Background depth wall (distant horizon) */}
-      <mesh position={[0,10,-35]}>
-        <planeGeometry args={[180,60]}/>
-        <meshBasicMaterial color="#020305"/>
-      </mesh>
     </group>
   );
 }
 
-function Beams() {
-  const refs=useRef([]);
-  const data=[{p:[-9,6,-7],c:'#4A90D9'},{p:[9,6,-7],c:'#6AC46A'},{p:[-13,6,-1],c:'#D4A843'},{p:[13,6,-1],c:'#D46A6A'},{p:[0,6,-18],c:'#9B6AD4'}];
-  useFrame((state)=>{refs.current.forEach((m,i)=>{if(!m)return;m.material.opacity=.05+Math.sin(state.clock.elapsedTime*.7+i)*.025;});});
-  return <>{data.map((b,i)=><mesh key={i} ref={el=>refs.current[i]=el} position={b.p}><cylinderGeometry args={[.04,.6,20,8,1,true]}/><meshBasicMaterial color={b.c} transparent opacity={.055} side={THREE.DoubleSide}/></mesh>)}</>;
-}
-
-function Particles({ isMobile }) {
-  const gr=useRef();
-  const cnt=isMobile?50:110;
-  const data=useRef(Array.from({length:cnt},(_,i)=>({
-    pos:[(Math.random()-.5)*50, Math.random()*12-1,(Math.random()-.5)*50],
-    spd:.25+Math.random()*.6, ph:Math.random()*Math.PI*2,
-    sz:.012+Math.random()*.038,
-    col:i%6===0?'#D4A843':i%4===0?'#4A90D9':'#ffffff',
-  })));
-  useFrame((state)=>{
-    if(!gr.current) return;
-    const t=state.clock.elapsedTime;
-    gr.current.children.forEach((c,i)=>{
-      const d=data.current[i];
-      c.position.y=d.pos[1]+Math.sin(t*d.spd+d.ph)*.7;
-      c.material.opacity=.13+Math.sin(t*d.spd*1.5+d.ph)*.1;
-    });
-  });
-  return <group ref={gr}>{data.current.map((d,i)=><mesh key={i} position={d.pos}><sphereGeometry args={[d.sz,4,4]}/><meshBasicMaterial color={d.col} transparent opacity={.18}/></mesh>)}</group>;
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // BACKGROUND HUD OVERLAY — corner frames, terminal text, horizontal scan
@@ -920,17 +1042,26 @@ function MobileControls({ onJoystick, hidden }) {
 // MAIN SCENE
 // ─────────────────────────────────────────────────────────────────────────────
 const STATION_POS = {
-  skills:  [-9, 0, 1],
-  profile: [-3, 0, 1],
-  projects:   [3,  0, 1],
-  contact:  [9,  0, 1],
-  certifications: [15, 0, 1],
+  skills:  [25, -0.5, 17],   
+  profile: [0, -1, -12],    
+  projects: [-17, -0.9, 3.0],    
+  contact:  [15, -0.5, -10],   
+  certifications: [40, -1, -12.0], 
 };
-const STATION_CAM = Object.fromEntries(
-  Object.entries(STATION_POS).map(([k, p]) => [
-    k, { pos: [p[0], 2, p[2] + 3], look: [p[0], p[1], p[2]] }
-  ])
-);
+const STATION_ROT = {
+  skills:  0.2,
+  profile: 0,
+  projects: -0.15,
+  contact:  0,
+  certifications: -0.6,
+};
+const STATION_CAM = {
+  skills: { pos: [-12, 2.0, -2.5], look: [-12, 1, -6.0] },
+  profile: { pos: [-4, 1.8, -5.5], look: [-4, 0.8, -9.5] },
+  projects: { pos: [5.5, 2.0, -1.0], look: [5, 0.8, -5.0] },
+  contact: { pos: [11.5, 2.0, -3.5], look: [11, 0.8, -7.5] },
+  certifications: { pos: [19, 2.0, -4.0], look: [18, 0.8, -8.0] }
+};
 
 export default function GameScene() {
   const activeSection   = useGameStore((s)=>s.activeSection);
@@ -998,31 +1129,27 @@ export default function GameScene() {
         style={{width:'100%',height:'100%'}}>
         <Suspense fallback={null}>
           <CameraController mobileJoystick={mobileJoystick} highSensitivity={highSensitivity} activeSection={activeSection} />
-          <color attach="background" args={['#0b162c']} />
-          <fog attach="fog" args={['#0b162c', 30, 200]}/>
+          {/* Bright Daylight Illumination Setup */}
+          <color attach="background" args={['#ffe099']} />
+          <fog attach="fog" args={['#ffd2a6', 20, 140]}/>
 
-          {/* Layered Lighting - Highly bright for full blocky visibility */}
-          <ambientLight intensity={1.8} color="#e2e8f0"/>
-          <directionalLight position={[15, 30, 15]} intensity={1.5} color="#ffffff" castShadow={!isMobile} shadow-mapSize={[1024,1024]}/>
+          <ambientLight intensity={1.5} color="#ffffff"/>
+          <directionalLight position={[30, 25, -40]} intensity={3.5} color="#ffedd5" castShadow={false} />
 
-          {/* Per-station colored spotlights */}
-          <spotLight position={[-9, 6, -1]} angle={0.4} penumbra={0.5} intensity={5.5} color="#4A90D9" />
-          <spotLight position={[-3, 6, 2]}  angle={0.4} penumbra={0.5} intensity={5.5} color="#D4A843" />
-          <spotLight position={[3,  6, 2]}  angle={0.4} penumbra={0.5} intensity={5.5} color="#6AC46A" />
-          <spotLight position={[9,  6, -1]} angle={0.4} penumbra={0.5} intensity={5.5} color="#D46A6A" />
-          <spotLight position={[15, 6, 2]}  angle={0.4} penumbra={0.5} intensity={5.5} color="#B388FF" />
+          {/* Minimal Station Lights - Reduced intensity for performance */}
+          <pointLight position={[-9, 3, -1]} intensity={1.5} color="#4A90D9" distance={10} />
+          <pointLight position={[-3, 3, 2]}  intensity={1.5} color="#D4A843" distance={10} />
+          <pointLight position={[3,  3, 2]}  intensity={1.5} color="#6AC46A" distance={10} />
+          <pointLight position={[9,  3, -1]} intensity={1.5} color="#D46A6A" distance={10} />
+          <pointLight position={[15, 3, 2]}  intensity={1.5} color="#B388FF" distance={10} />
           
-
-          <Environment preset="night"/>
           <GameEnvironment/>
-          <Beams/>
-          <Particles isMobile={isMobile}/>
 
-          <ProfileStation  position={STATION_POS.profile}  onActivate={()=>activateStation('profile')}  isActive={activeSection==='profile'}/>
-          <ProjectsStation position={STATION_POS.projects} onActivate={()=>activateStation('projects')} isActive={activeSection==='projects'}/>
-          <SkillsStation   position={STATION_POS.skills}   onActivate={()=>activateStation('skills')}   isActive={activeSection==='skills'}/>
-          <ContactStation  position={STATION_POS.contact}  onActivate={()=>activateStation('contact')}  isActive={activeSection==='contact'}/>
-          <CertificationsStation position={STATION_POS.certifications} onActivate={()=>activateStation('certifications')} isActive={activeSection==='certifications'}/>
+          <ProfileStation  position={STATION_POS.profile}  rotation={[0, STATION_ROT.profile, 0]}  onActivate={()=>activateStation('profile')}  isActive={activeSection==='profile'}/>
+          <ProjectsStation position={STATION_POS.projects} rotation={[0, STATION_ROT.projects, 0]} onActivate={()=>activateStation('projects')} isActive={activeSection==='projects'}/>
+          <SkillsStation   position={STATION_POS.skills}   rotation={[0, STATION_ROT.skills, 0]}   onActivate={()=>activateStation('skills')}   isActive={activeSection==='skills'}/>
+          <ContactStation  position={STATION_POS.contact}  rotation={[0, STATION_ROT.contact, 0]}  onActivate={()=>activateStation('contact')}  isActive={activeSection==='contact'}/>
+          <CertificationsStation position={STATION_POS.certifications} rotation={[0, STATION_ROT.certifications, 0]} onActivate={()=>activateStation('certifications')} isActive={activeSection==='certifications'}/>
         </Suspense>
       </Canvas>
 
@@ -1031,7 +1158,7 @@ export default function GameScene() {
 
       {/* ── Title ── */}
       <div style={{position:'absolute',top:24,left:28,pointerEvents:'none',zIndex:10}}>
-        <div style={{fontFamily:"'Oswald', sans-serif",fontSize:32,lineHeight:0.8,color:'rgba(192, 147, 43, 0.8)',textShadow:'2px 2px 0 rgba(0,0,0,0.8)'}}>AHMAD SP</div>
+        <div style={{fontFamily:"'Pricedown Bl', sans-serif",fontSize:32,lineHeight:0.8,color:'rgba(192, 147, 43, 0.8)',textShadow:'2px 2px 0 rgba(0,0,0,0.8)'}}>AHMAD SP</div>
         <div style={{fontFamily:"'Oswald', sans-serif",fontSize:9,letterSpacing:'.45em',color:'rgba(255,255,255,0.22)',textTransform:'uppercase',marginTop:8}}>AIML · FULL STACK · AI ENGINEER</div>
       </div>
 
