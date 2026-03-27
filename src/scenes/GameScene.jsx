@@ -869,40 +869,40 @@ function TrafficCar({ car, route, motion, palette }) {
 
   return (
     <group ref={root} frustumCulled={false} scale={car.scale}>
-      <mesh position={[0, 0.2, 0]}>
-        <boxGeometry args={[1.45, 0.34, 0.78]}/>
+      <mesh position={[0, 0.24, 0]}>
+        <boxGeometry args={[1.9, 0.42, 0.96]}/>
         <meshStandardMaterial color={car.color} roughness={0.72}/>
       </mesh>
-      <mesh position={[0.12, 0.43, 0]}>
-        <boxGeometry args={[0.74, 0.24, 0.66]}/>
+      <mesh position={[0.18, 0.5, 0]}>
+        <boxGeometry args={[0.98, 0.3, 0.78]}/>
         <meshStandardMaterial color="#d9e2ec" roughness={0.35}/>
       </mesh>
-      {[-0.42, 0.42].map((z) => (
+      {[-0.5, 0.5].map((z) => (
         <group key={z}>
-          <mesh position={[-0.46, 0.02, z]} rotation={[-Math.PI/2, 0, 0]}>
-            <cylinderGeometry args={[0.14, 0.14, 0.12, 10]}/>
+          <mesh position={[-0.58, 0.03, z]} rotation={[-Math.PI/2, 0, 0]}>
+            <cylinderGeometry args={[0.17, 0.17, 0.16, 10]}/>
             <meshStandardMaterial color="#09090b" roughness={0.95}/>
           </mesh>
-          <mesh position={[0.46, 0.02, z]} rotation={[-Math.PI/2, 0, 0]}>
-            <cylinderGeometry args={[0.14, 0.14, 0.12, 10]}/>
+          <mesh position={[0.58, 0.03, z]} rotation={[-Math.PI/2, 0, 0]}>
+            <cylinderGeometry args={[0.17, 0.17, 0.16, 10]}/>
             <meshStandardMaterial color="#09090b" roughness={0.95}/>
           </mesh>
         </group>
       ))}
-      <mesh position={[0.76, 0.2, 0.2]}>
-        <boxGeometry args={[0.06, 0.08, 0.12]}/>
+      <mesh position={[0.99, 0.24, 0.24]}>
+        <boxGeometry args={[0.08, 0.1, 0.14]}/>
         <meshLambertMaterial color={palette.carHead} emissive={palette.carHead} emissiveIntensity={0.65}/>
       </mesh>
-      <mesh position={[0.76, 0.2, -0.2]}>
-        <boxGeometry args={[0.06, 0.08, 0.12]}/>
+      <mesh position={[0.99, 0.24, -0.24]}>
+        <boxGeometry args={[0.08, 0.1, 0.14]}/>
         <meshLambertMaterial color={palette.carHead} emissive={palette.carHead} emissiveIntensity={0.65}/>
       </mesh>
-      <mesh position={[-0.76, 0.2, 0.2]}>
-        <boxGeometry args={[0.05, 0.08, 0.12]}/>
+      <mesh position={[-0.99, 0.24, 0.24]}>
+        <boxGeometry args={[0.07, 0.1, 0.14]}/>
         <meshLambertMaterial color={palette.carTail} emissive={palette.carTail} emissiveIntensity={0.45}/>
       </mesh>
-      <mesh position={[-0.76, 0.2, -0.2]}>
-        <boxGeometry args={[0.05, 0.08, 0.12]}/>
+      <mesh position={[-0.99, 0.24, -0.24]}>
+        <boxGeometry args={[0.07, 0.1, 0.14]}/>
         <meshLambertMaterial color={palette.carTail} emissive={palette.carTail} emissiveIntensity={0.45}/>
       </mesh>
     </group>
@@ -928,7 +928,7 @@ function TrafficFlow({ profile, palette, motion }) {
           routeIndex,
           offset: laneCount === 1 ? 0.17 * (routeIndex + 1) : j / laneCount,
           speed: 8.5 + routeIndex * 1.1 + j * 0.45,
-          scale: 0.9 + ((routeIndex + j) % 3) * 0.08,
+          scale: 1.28 + ((routeIndex + j) % 3) * 0.1,
           laneOffset: ((j % 2) - 0.5) * 0.18,
           phase: routeIndex * 1.7 + j * 0.9,
           color: palette.carColors[(routeIndex * 2 + j) % palette.carColors.length]
@@ -961,7 +961,7 @@ function PedestrianWalker({ walker, motion, palette }) {
     const stride = Math.sin(t * motion.pedestrianStride + walker.phase);
 
     root.current.position.set(x, 0.02, walker.z);
-    root.current.rotation.y = walker.from < walker.to ? 0 : Math.PI;
+    root.current.rotation.y = walker.from < walker.to ? -Math.PI / 2 : Math.PI / 2;
 
     if (torso.current) torso.current.position.y = 0.82 + Math.abs(stride) * motion.pedestrianBob;
     if (leftLeg.current) leftLeg.current.rotation.x = stride * 0.55;
