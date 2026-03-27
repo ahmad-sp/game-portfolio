@@ -27,13 +27,20 @@ html, body, #root {
   color: #fff;
   -webkit-font-smoothing: antialiased;
   user-select: none;
+  touch-action: manipulation;
+}
+
+canvas {
+  touch-action: none;
 }
 
 /* Scrollable panels inside overlays */
 .panel-scroll {
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
   scrollbar-color: var(--gold) #111;
+  touch-action: pan-y;
 }
 .panel-scroll::-webkit-scrollbar { width: 4px; }
 .panel-scroll::-webkit-scrollbar-track { background: #111; }
