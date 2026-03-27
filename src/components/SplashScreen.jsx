@@ -2,208 +2,171 @@ import { useRef, useState } from 'react';
 import { gsap } from 'gsap';
 import useGameStore from '../store/useGameStore';
 
-function playSpray() {
+const playDeepImpact = () => {
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const bufferSize = ctx.sampleRate * 1.0; 
+    const masterGain = ctx.createGain();
+    masterGain.connect(ctx.destination);
+
+    const now = ctx.currentTime;
+
+    // LAYER 1: THE SUB-BASS (The "Thump")
+    const subOsc = ctx.createOscillator();
+    const subGain = ctx.createGain();
+    subOsc.type = 'sine';
+    subOsc.frequency.setValueAtTime(60, now); // Very deep
+    subOsc.frequency.exponentialRampToValueAtTime(30, now + 0.4);
+    
+    subGain.gain.setValueAtTime(1.2, now);
+    subGain.gain.exponentialRampToValueAtTime(0.01, now + 0.6);
+    
+    subOsc.connect(subGain).connect(masterGain);
+
+    // LAYER 2: THE CRUNCH (The "Rockstar Slam")
+    const crunchOsc = ctx.createOscillator();
+    const crunchGain = ctx.createGain();
+    const filter = ctx.createBiquadFilter();
+    
+    crunchOsc.type = 'sawtooth'; // Aggressive texture
+    crunchOsc.frequency.setValueAtTime(120, now);
+    crunchOsc.frequency.exponentialRampToValueAtTime(40, now + 0.2);
+    
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(600, now);
+    filter.frequency.exponentialRampToValueAtTime(50, now + 0.3);
+    
+    crunchGain.gain.setValueAtTime(0.5, now);
+    crunchGain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+    
+    crunchOsc.connect(filter).connect(crunchGain).connect(masterGain);
+
+    // LAYER 3: THE DUST (White Noise Reverb)
+    const bufferSize = ctx.sampleRate * 1.0;
     const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
     const data = buffer.getChannelData(0);
     for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+    
     const noise = ctx.createBufferSource();
     noise.buffer = buffer;
+    const noiseGain = ctx.createGain();
+    const noiseFilter = ctx.createBiquadFilter();
     
-    const filter = ctx.createBiquadFilter();
-    filter.type = 'highpass';
-    filter.frequency.value = 800;
+    noiseFilter.type = 'lowpass';
+    noiseFilter.frequency.value = 300;
     
-    const gain = ctx.createGain();
-    gain.gain.setValueAtTime(0, ctx.currentTime);
-    gain.gain.linearRampToValueAtTime(0.5, ctx.currentTime + 0.1);
-    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.9);
+    noiseGain.gain.setValueAtTime(0.2, now);
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
     
-    noise.connect(filter);
-    filter.connect(gain);
-    gain.connect(ctx.destination);
-    noise.start();
-  } catch(e) {}
-}
+    noise.connect(noiseFilter).connect(noiseGain).connect(masterGain);
 
-function playImpact() {
-  try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.type = 'sine';
+    // MASTER TRIGGER
+    subOsc.start(now);
+    crunchOsc.start(now);
+    noise.start(now);
+
+    subOsc.stop(now + 0.8);
+    crunchOsc.stop(now + 0.8);
+    noise.stop(now + 1.0);
     
-    osc.frequency.setValueAtTime(150, ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(20, ctx.currentTime + 0.5);
-    
-    gain.gain.setValueAtTime(2.0, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.8);
-    osc.start();
-    osc.stop(ctx.currentTime + 0.8);
-  } catch(e) {}
-}
+  } catch (e) {
+    console.log("Audio blocked by browser.");
+  }
+};
 
 export default function SplashScreen() {
   const setSplashDone = useGameStore((s) => s.setSplashDone);
   const [started, setStarted] = useState(false);
-  
-  const wrapRef = useRef();
+  const containerRef = useRef();
   const textRef = useRef();
-  const maskPathRef = useRef();
-  const particleContainerRef = useRef();
-  const instructionRef = useRef();
+  const overlayRef = useRef();
 
-  const handleStart = () => {
+  const handleTrigger = () => {
     if (started) return;
     setStarted(true);
-    gsap.to(instructionRef.current, { opacity: 0, duration: 0.2 });
+    playDeepImpact();
 
-    const tl = gsap.timeline({ delay: 0.3 });
+    const tl = gsap.timeline({
+      onComplete: () => {
+        gsap.to(containerRef.current, {
+          opacity: 0,
+          duration: 0.6,
+          delay: 0.5,
+          onComplete: () => setSplashDone(true)
+        });
+      }
+    });
 
-    // Spray Reveal
-    tl.add(() => playSpray(), 0);
-    
-    tl.fromTo(maskPathRef.current, 
-      { strokeDashoffset: -1500 }, 
-      { 
-        strokeDashoffset: 0, 
-        duration: 0.9, 
-        ease: 'power2.inOut',
-        onUpdate: function() {
-          const progress = this.progress(); 
-          spawnParticles(progress);
-        }
-      }, 0
+    // 1. Violent Entry
+    tl.fromTo(textRef.current, 
+      { scale: 5, opacity: 0, filter: 'blur(20px)' },
+      { scale: 1, opacity: 1, filter: 'blur(0px)', duration: 0.15, ease: "expo.out" }
     );
 
-    // Impact
-    tl.add(() => {
-      playImpact();
-      gsap.to(wrapRef.current, {
-        x: () => (Math.random()-0.5)*15,
-        y: () => (Math.random()-0.5)*15,
-        yoyo: true, repeat: 5, duration: 0.04
-      });
-      // Glow pulse
-      gsap.fromTo(textRef.current, 
-        { filter: 'drop-shadow(0px 0px 40px rgba(212,168,67,1)) brightness(2)' },
-        { filter: 'drop-shadow(0px 0px 15px rgba(212,168,67,0.4)) brightness(1)', duration: 0.8, ease: 'power2.out' }
-      );
-    }, 0.9);
+    // 2. High-Frequency Strobe (The Rockstar Trademark)
+    tl.to(overlayRef.current, {
+      opacity: 1,
+      repeat: 7,
+      yoyo: true,
+      duration: 0.04,
+      ease: "none",
+      onComplete: () => gsap.set(overlayRef.current, { opacity: 0 })
+    }, "<");
 
-    // Fade to black and transition
-    tl.to(wrapRef.current, {
-      opacity: 0, duration: 0.5, ease: 'power2.inOut',
-      delay: 0.6,
-      onComplete: () => setSplashDone(true)
-    });
-  };
-
-  const spawnParticles = (progress) => {
-    if (!particleContainerRef.current) return;
-    const px = Math.floor(progress * window.innerWidth);
-    const py = Math.floor(progress * window.innerHeight);
-
-    for(let i=0; i<3; i++) {
-      const p = document.createElement('div');
-      p.style.position = 'absolute';
-      p.style.width = Math.random() > 0.6 ? '4px' : '2px';
-      p.style.height = p.style.width;
-      p.style.borderRadius = '50%';
-      p.style.backgroundColor = Math.random() > 0.4 ? '#D4A843' : '#FFFFFF';
-      p.style.left = `${px + (Math.random()-0.5)*60}px`;
-      p.style.top = `${py + (Math.random()-0.5)*60}px`;
-      p.style.pointerEvents = 'none';
-      p.style.zIndex = 10;
-      particleContainerRef.current.appendChild(p);
-
-      gsap.to(p, {
-        x: (Math.random()-0.5)*50,
-        y: (Math.random()-0.5)*50 + 20, 
-        opacity: 0,
-        scale: 0.1,
-        duration: 0.3 + Math.random()*0.3,
-        ease: 'power1.out',
-        onComplete: () => p.remove()
-      });
-    }
+    // 3. Brutal Screen Shake
+    tl.to(textRef.current, {
+      x: "random(-40, 40)",
+      y: "random(-40, 40)",
+      duration: 0.05,
+      repeat: 10,
+      yoyo: true,
+      onComplete: () => gsap.set(textRef.current, { x: 0, y: 0 })
+    }, "-=0.3");
   };
 
   return (
     <div
-      ref={wrapRef}
-      onClick={handleStart}
+      ref={containerRef}
+      onClick={handleTrigger}
       style={{
         position: 'fixed', inset: 0, zIndex: 9999,
-        background: '#040508',
+        background: '#050505',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        cursor: started ? 'auto' : 'pointer', overflow: 'hidden'
+        cursor: started ? 'default' : 'crosshair', // Rockstar games often use a crosshair/aimer vibe
+        overflow: 'hidden',
+        userSelect: 'none'
       }}
     >
-      {/* Grain Overlay */}
-      <div style={{
-        position: 'absolute', inset: 0,
-        backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=%220 0 200 200%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22noiseFilter%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%220.8%22 numOctaves=%223%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23noiseFilter)%22/%3E%3C/svg%3E")',
-        opacity: 0.05, mixBlendMode: 'overlay', pointerEvents: 'none'
-      }} />
+      {/* Full-screen strobe layer */}
+      <div ref={overlayRef} style={{ position: 'absolute', inset: 0, background: '#D4A843', opacity: 0, zIndex: 5, pointerEvents: 'none' }} />
 
-      <div ref={particleContainerRef} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} />
-
-      {!started && (
-        <div ref={instructionRef} style={{
-          position: 'absolute', bottom: '15%', color: '#666',
-          fontFamily: "'Share Tech Mono', monospace", fontSize: 14, letterSpacing: '0.2em',
-          animation: 'pulse 1.5s infinite'
-        }}>
-          [ CLICK TO INITIALIZE ]
+      {!started ? (
+        <div style={{ color: '#666', fontFamily: 'Impact, sans-serif', fontSize: '1rem', letterSpacing: '0.5em', opacity: 0.5, animation: 'blink 1s infinite' }}>
+          PRESS ANYWHERE TO LOAD
         </div>
+      ) : (
+        <h1
+          ref={textRef}
+          style={{
+            fontSize: '22vw',
+            fontWeight: '900',
+            color: '#D4A843',
+            fontFamily: 'Impact, sans-serif',
+            margin: 0,
+            zIndex: 10,
+            textShadow: '10px 10px 0px rgba(0,0,0,1)'
+          }}
+        >
+          AHMAD
+        </h1>
       )}
 
-      <style>{`@keyframes pulse { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }`}</style>
+      {/* Grit & Vignette */}
+      <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle, transparent 40%, #000 150%)', zIndex: 11, pointerEvents: 'none' }} />
+      <div style={{ position: 'absolute', inset: 0, backgroundImage: 'url("https://www.transparenttextures.com/patterns/carbon-fibre.png")', opacity: 0.1, zIndex: 12, pointerEvents: 'none' }} />
 
-      {/* SVG Mask Reveal */}
-      <svg width="100%" height="100%" viewBox="0 0 1000 500" preserveAspectRatio="xMidYMid meet" style={{ pointerEvents: 'none' }}>
-        <defs>
-          <filter id="spray-roughness">
-            <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="4" result="noise" />
-            <feDisplacementMap in="SourceGraphic" in2="noise" scale="40" xChannelSelector="R" yChannelSelector="G" />
-            <feGaussianBlur stdDeviation="1.5" />
-          </filter>
-          
-          <mask id="spray-mask">
-            <path
-              ref={maskPathRef}
-              d="M -50 -50 L 1050 550"
-              stroke="white"
-              strokeWidth="320"
-              strokeDasharray="1500"
-              strokeDashoffset="1500"
-              strokeLinecap="round"
-              filter="url(#spray-roughness)"
-              fill="none"
-            />
-          </mask>
-        </defs>
-
-        <g mask={started ? "url(#spray-mask)" : "none"}>
-          {started && (
-            <text
-              ref={textRef}
-              x="500" y="250"
-              textAnchor="middle" dominantBaseline="middle"
-              fontSize="240" fontFamily="Pricedown Bl, 'Oswald', sans-serif"
-              fill="#D4A843" letterSpacing="10"
-              style={{ filter: 'drop-shadow(0px 0px 15px rgba(212,168,67,0.4))' }}
-            >
-              AHMAD
-            </text>
-          )}
-        </g>
-      </svg>
+      <style>{`
+        @keyframes blink { 0% { opacity: 0.1; } 50% { opacity: 0.6; } 100% { opacity: 0.1; } }
+      `}</style>
     </div>
   );
 }

@@ -1,6 +1,6 @@
-import { useRef, useState, useEffect, Suspense, useCallback, useMemo, useLayoutEffect } from 'react';
+import { useRef, useState, useEffect, Suspense, useCallback, useMemo } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { Environment, Float, Html } from '@react-three/drei';
+import { Html } from '@react-three/drei';
 import { gsap } from 'gsap';
 import * as THREE from 'three';
 import useGameStore from '../store/useGameStore';
@@ -43,6 +43,70 @@ export const returnCamera = () => {
       } 
     }));
     camTarget.hasSaved = false;
+  }
+};
+
+const ENV_PRESET = {
+  activePalette: 'goldenHour',
+  palettes: {
+    goldenHour: {
+      background: '#ffe099',
+      fog: '#ffd2a6',
+      fogNear: 20,
+      fogFar: 140,
+      skyTop: '#4a90e2',
+      skyMid: '#ffb17a',
+      skyBottom: '#ffe099',
+      ambient: '#fff7ec',
+      sun: '#ffedd5',
+      dust: '#ffe8bc',
+      haze: '#ffd39a',
+      streetLamp: '#ffd166',
+      windowGlow: '#ffd3a0',
+      pedestrianRim: '#ffb980',
+      carHead: '#fff4c2',
+      carTail: '#ff6b6b',
+      stationLights: [
+        { color: '#5ca7f2', intensity: 1.45, position: [-9, 3, -1] },
+        { color: '#e8b85a', intensity: 1.55, position: [-3, 3, 2] },
+        { color: '#79d07a', intensity: 1.5, position: [3, 3, 2] },
+        { color: '#df7b7b', intensity: 1.45, position: [9, 3, -1] },
+        { color: '#bf9bff', intensity: 1.5, position: [15, 3, 2] }
+      ],
+      carColors: ['#f8fafc', '#cbd5e1', '#fca5a5', '#93c5fd', '#86efac', '#fcd34d']
+    }
+  },
+  motion: {
+    treeSway: 0.055,
+    treeSpeed: 0.65,
+    wireSway: 0.09,
+    wireSpeed: 0.75,
+    dustDrift: 2.6,
+    hazePulse: 0.015,
+    pedestrianBob: 0.05,
+    pedestrianStride: 4.2,
+    trafficBob: 0.02,
+    lampFlicker: 0.16,
+    windowFlickerSwing: 0.14,
+    signalPulse: 0.35
+  },
+  quality: {
+    desktop: {
+      trafficCount: 6,
+      pedestrianCount: 4,
+      particleCount: 110,
+      wireCount: 4,
+      haze: true,
+      updateDivisor: 1
+    },
+    mobile: {
+      trafficCount: 3,
+      pedestrianCount: 2,
+      particleCount: 56,
+      wireCount: 3,
+      haze: false,
+      updateDivisor: 2
+    }
   }
 };
 
@@ -388,7 +452,7 @@ function ProjectsStation({ position, rotation, onActivate, isActive }) {
         <mesh position={[1.8, -0.15, 0]}><boxGeometry args={[1.2, 1.0, 1.4]}/><meshLambertMaterial color="#f8fafc"/></mesh>
         
         {/* Windshield */}
-        <mesh position={[1.5, 0.45, 0]} rotation={[0, 0, 0.4]}><boxGeometry args={[0.5, 0.4, 1.3]}/><meshLambertMaterial color="#0f172a" roughness={0.1}/></mesh>
+        <mesh position={[1.5, 0.45, 0]} rotation={[0, 0, 0.4]}><boxGeometry args={[0.5, 0.4, 1.3]}/><meshStandardMaterial color="#0f172a" roughness={0.1}/></mesh>
 
         {/* Side Windows */}
         <mesh position={[1.8, 0.15, 0.71]}><boxGeometry args={[0.6, 0.4, 0.05]}/><meshLambertMaterial color="#0f172a"/></mesh>
@@ -451,6 +515,7 @@ function ProjectsStation({ position, rotation, onActivate, isActive }) {
 // ─────────────────────────────────────────────────────────────────────────────
 function SkillsStation({ position, rotation, onActivate, isActive }) {
   const root=useRef(); 
+  const signalLightRefs = useRef([]);
   const [hov,setHov]=useState(false);
   const C='#eab308'; // Traffic Yellow
   
@@ -476,6 +541,13 @@ function SkillsStation({ position, rotation, onActivate, isActive }) {
     const t=state.clock.elapsedTime;
     if(!root.current) return;
     root.current.position.y=position[1]+Math.sin(t*.5)*.06;
+
+    signalLightRefs.current.forEach((light, idx) => {
+      if (!light) return;
+      const pulse = 1 + Math.sin(t * 5 + idx) * ENV_PRESET.motion.signalPulse;
+      const active = idx === lightState;
+      light.intensity = active ? 1.4 * pulse : 0.08;
+    });
   });
 
   const oe=()=>{setHov(true);document.body.style.cursor='pointer';audio.hover();if(root.current) gsap.to(root.current.scale,{x:1.06,y:1.06,z:1.06,duration:.3,ease:'power2.out'});};
@@ -512,18 +584,22 @@ function SkillsStation({ position, rotation, onActivate, isActive }) {
           {/* Lenses */}
           <mesh position={[0, 0.45, 0.4]}>
             <circleGeometry args={[0.18, 16]}/>
-            <meshBasicMaterial color={lightState===0 ? "#ef4444" : "#451a1a"} emissive="#ef4444" emissiveIntensity={lightState===0 ? ((hov||isActive)?1.8:1.2) : 0.0}/>
+            <meshLambertMaterial color={lightState===0 ? "#ef4444" : "#451a1a"} emissive="#ef4444" emissiveIntensity={lightState===0 ? ((hov||isActive)?1.8:1.2) : 0.0}/>
           </mesh>
           <mesh position={[0, 0.0, 0.4]}>
             <circleGeometry args={[0.18, 16]}/>
-            <meshBasicMaterial color={lightState===2 ? "#f59e0b" : "#4a2d04"} emissive="#f59e0b" emissiveIntensity={lightState===2 ? ((hov||isActive)?1.8:1.2) : 0.0}/>
+            <meshLambertMaterial color={lightState===2 ? "#f59e0b" : "#4a2d04"} emissive="#f59e0b" emissiveIntensity={lightState===2 ? ((hov||isActive)?1.8:1.2) : 0.0}/>
           </mesh>
           <mesh position={[0, -0.45, 0.4]}>
             <circleGeometry args={[0.18, 16]}/>
-            <meshBasicMaterial color={lightState===1 ? "#22c55e" : "#093816"} emissive="#22c55e" emissiveIntensity={lightState===1 ? ((hov||isActive)?1.8:1.2) : 0.0}/>
+            <meshLambertMaterial color={lightState===1 ? "#22c55e" : "#093816"} emissive="#22c55e" emissiveIntensity={lightState===1 ? ((hov||isActive)?1.8:1.2) : 0.0}/>
           </mesh>
         </group>
       ))}
+
+      <pointLight ref={(el) => { signalLightRefs.current[0] = el; }} position={[-2.5, 3.25, 0.9]} color="#ef4444" distance={6} intensity={0.1} />
+      <pointLight ref={(el) => { signalLightRefs.current[1] = el; }} position={[-2.5, 2.8, 0.9]} color="#22c55e" distance={6} intensity={0.1} />
+      <pointLight ref={(el) => { signalLightRefs.current[2] = el; }} position={[-2.5, 3.02, 0.9]} color="#f59e0b" distance={5} intensity={0.1} />
 
       <mesh position={[0,-1.98,0]} rotation={[-Math.PI/2,0,0]}><circleGeometry args={[2.0,32]}/><meshBasicMaterial color={C} transparent opacity={(hov||isActive) ? 0.2 : 0.05}/></mesh>
 
@@ -556,19 +632,19 @@ function ContactStation({ position, rotation, onActivate, isActive }) {
   return (
     <group frustumCulled={false} ref={root} position={position} rotation={rotation} onPointerEnter={oe} onPointerLeave={ol} onClick={()=>{audio.click();onActivate();}}>
       {/* Grounding Shadow Plane */}
-      <mesh position={[0,-1.3,0]} rotation={[-Math.PI/2,0,0]}><circleGeometry args={[1.8, 32]}/><meshBasicMaterial color="#000" transparent opacity={0.6}/></mesh>
+      <mesh frustumCulled={false} position={[0,-1.3,0]} rotation={[-Math.PI/2,0,0]}><circleGeometry args={[1.8, 32]}/><meshBasicMaterial color="#000" transparent opacity={0.6}/></mesh>
 
       <group scale={0.95}>
         {/* Concrete platform base */}
-        <mesh position={[0,-1.05,0]}><boxGeometry args={[1.8, 0.1, 1.8]}/><meshLambertMaterial color="#2d3748"/></mesh>
+        <mesh frustumCulled={false} position={[0,-1.05,0]}><boxGeometry args={[1.8, 0.1, 1.8]}/><meshLambertMaterial color="#2d3748"/></mesh>
 
         {/* Booth Base Floor */}
-        <mesh position={[0,-0.9,0]}><boxGeometry args={[1.4, 0.2, 1.4]}/><meshLambertMaterial color="#b91c1c"/></mesh>
+        <mesh frustumCulled={false} position={[0,-0.9,0]}><boxGeometry args={[1.4, 0.2, 1.4]}/><meshLambertMaterial color="#b91c1c"/></mesh>
         
         {/* 4 Corner Pillars (Red) */}
         {[-0.6, 0.6].map((x) => 
           [-0.6, 0.6].map((z) => (
-            <mesh key={`${x}-${z}`} position={[x, 0.3, z]}>
+            <mesh frustumCulled={false} key={`${x}-${z}`} position={[x, 0.3, z]}>
               <boxGeometry args={[0.15, 2.2, 0.15]}/>
               <meshLambertMaterial color="#b91c1c"/>
             </mesh>
@@ -576,30 +652,30 @@ function ContactStation({ position, rotation, onActivate, isActive }) {
         )}
 
         {/* Translucent Glass Panes */}
-        <mesh position={[0, 0.3, 0]}>
+        <mesh frustumCulled={false} position={[0, 0.3, 0]}>
           <boxGeometry args={[1.25, 2.1, 1.25]}/>
-          <meshBasicMaterial color="#38bdf8" transparent depthWrite={false} opacity={(hov||isActive)?0.3:0.15}/>
+          <meshBasicMaterial color="#38bdf8" transparent depthWrite={false} opacity={(hov||isActive)?0.3:0.15} side={THREE.DoubleSide}/>
         </mesh>
 
         {/* Booth Roof */}
-        <mesh position={[0, 1.5, 0]}><boxGeometry args={[1.45, 0.2, 1.45]}/><meshLambertMaterial color="#b91c1c"/></mesh>
-        <mesh position={[0, 1.7, 0]}><boxGeometry args={[1.0, 0.2, 1.0]}/><meshLambertMaterial color="#b91c1c" roughness={0.7}/></mesh>
-        <mesh position={[0, 1.85, 0]}><sphereGeometry args={[0.15]}/><meshLambertMaterial color="#f87171"/></mesh>
+        <mesh frustumCulled={false} position={[0, 1.5, 0]}><boxGeometry args={[1.45, 0.2, 1.45]}/><meshLambertMaterial color="#b91c1c"/></mesh>
+        <mesh frustumCulled={false} position={[0, 1.7, 0]}><boxGeometry args={[1.0, 0.2, 1.0]}/><meshStandardMaterial color="#b91c1c" roughness={0.7}/></mesh>
+        <mesh frustumCulled={false} position={[0, 1.85, 0]}><sphereGeometry args={[0.15]}/><meshLambertMaterial color="#f87171"/></mesh>
 
         {/* Telephone inside */}
-        <mesh position={[0, 0.4, -0.4]}><boxGeometry args={[0.4, 0.6, 0.15]}/><meshLambertMaterial color="#111"/></mesh>
+        <mesh frustumCulled={false} position={[0, 0.4, -0.4]}><boxGeometry args={[0.4, 0.6, 0.15]}/><meshLambertMaterial color="#111"/></mesh>
         {/* Glowing Screen/Buttons inside */}
-        <mesh position={[0, 0.5, -0.32]}><boxGeometry args={[0.2, 0.3, 0.05]}/><meshLambertMaterial color={C} emissive={C} emissiveIntensity={(hov||isActive)?1.1:0.4}/></mesh>
+        <mesh frustumCulled={false} position={[0, 0.5, -0.32]}><boxGeometry args={[0.2, 0.3, 0.05]}/><meshLambertMaterial color={C} emissive={C} emissiveIntensity={(hov||isActive)?1.1:0.4}/></mesh>
 
         {/* Universal 3D Branding Sign (Contact) placed atop the Booth */}
-        <mesh position={[0, 2.8, 0]}>
+        <mesh frustumCulled={false} position={[0, 2.8, 0]}>
           <boxGeometry args={[3.2, 0.8, 0.1]}/>
-          <meshBasicMaterial color={C} transparent depthWrite={false} opacity={0.15}/>
+          <meshBasicMaterial color={C} transparent depthWrite={false} opacity={0.15} side={THREE.DoubleSide}/>
         </mesh>
         <Html zIndexRange={[100, 0]} position={[0, 2.8, 0.1]} center transform style={{pointerEvents:'none',fontFamily:"'Oswald'",fontSize:28,fontWeight:900,letterSpacing:'.3em',color:'#fff',textShadow:`0 0 16px ${C}`}}>CONTACT</Html>
       </group>
 
-      <mesh position={[0,-1.98,0]} rotation={[-Math.PI/2,0,0]}><circleGeometry args={[1.4,32]}/><meshBasicMaterial color={C} transparent opacity={(hov||isActive) ? 0.2 : 0.08}/></mesh>
+      <mesh frustumCulled={false} position={[0,-1.98,0]} rotation={[-Math.PI/2,0,0]}><circleGeometry args={[1.4,32]}/><meshBasicMaterial color={C} transparent opacity={(hov||isActive) ? 0.2 : 0.08}/></mesh>
     </group>
   );
 }
@@ -623,33 +699,33 @@ function CertificationsStation({ position, rotation, onActivate, isActive }) {
   return (
     <group frustumCulled={false} ref={root} position={position} rotation={rotation} onPointerEnter={oe} onPointerLeave={ol} onClick={()=>{audio.click();onActivate();}}>
       {/* Grounding Shadow Plane */}
-      <mesh position={[0,-1.0,0]} rotation={[-Math.PI/2,0,0]}><circleGeometry args={[3.5, 32]}/><meshBasicMaterial color="#000" transparent opacity={0.6}/></mesh>
+      <mesh frustumCulled={false} position={[0,-1.0,0]} rotation={[-Math.PI/2,0,0]}><circleGeometry args={[3.5, 32]}/><meshBasicMaterial color="#000" transparent opacity={0.6}/></mesh>
 
       <group scale={3.6}>
         {/* Huge Pillar Supports */}
         {[-1.6, 1.6].map((x) => (
           <group key={x}>
             {/* Concrete Footer */}
-            <mesh position={[x, -0.6, 0]}><cylinderGeometry args={[0.4, 0.5, 0.6, 8]}/><meshLambertMaterial color="#1e293b"/></mesh>
+            <mesh frustumCulled={false} position={[x, -0.6, 0]}><cylinderGeometry args={[0.4, 0.5, 0.6, 8]}/><meshLambertMaterial color="#1e293b"/></mesh>
             {/* Metal Pole */}
-            <mesh position={[x, 0.4, 0]}><cylinderGeometry args={[0.15, 0.15, 1.8, 8]}/><meshLambertMaterial color="#334155"/></mesh>
+            <mesh frustumCulled={false} position={[x, 0.4, 0]}><cylinderGeometry args={[0.15, 0.15, 1.8, 8]}/><meshLambertMaterial color="#334155"/></mesh>
           </group>
         ))}
 
         {/* Billboard Frame */}
-        <mesh position={[0, 1.6, 0]}><boxGeometry args={[4.8, 2.6, 0.4]}/><meshLambertMaterial color="#0f172a"/></mesh>
+        <mesh frustumCulled={false} position={[0, 1.6, 0]}><boxGeometry args={[4.8, 2.6, 0.4]}/><meshLambertMaterial color="#0f172a"/></mesh>
 
         {/* Billboard Glowing Screen Surface */}
-        <mesh position={[0, 1.6, 0.21]}>
+        <mesh frustumCulled={false} position={[0, 1.6, 0.21]}>
           <boxGeometry args={[4.4, 2.2, 0.05]}/>
-          <meshLambertMaterial color="#0b0f19" emissive={C} emissiveIntensity={(hov||isActive)?0.4:0.1}/>
+          <meshLambertMaterial color="#0b0f19" emissive={C} emissiveIntensity={(hov||isActive)?0.4:0.1} side={THREE.DoubleSide}/>
         </mesh>
         
         {/* Main Text on Billboard */}
         <Html zIndexRange={[100, 0]} position={[0, 1.6, 0.25]} center transform style={{pointerEvents:'none',fontFamily:"'Oswald'",fontSize:26,fontWeight:900,letterSpacing:'.2em',color:'#fff',textShadow:`0 0 24px ${C}`}}>CERTIFICATIONS</Html>
       </group>
 
-      <mesh position={[0,-1.98,0]} rotation={[-Math.PI/2,0,0]}><circleGeometry args={[2.0,32]}/><meshBasicMaterial color={C} transparent opacity={(hov||isActive) ? 0.2 : 0.05}/></mesh>
+      <mesh frustumCulled={false} position={[0,-1.98,0]} rotation={[-Math.PI/2,0,0]}><circleGeometry args={[2.0,32]}/><meshBasicMaterial color={C} transparent opacity={(hov||isActive) ? 0.2 : 0.05}/></mesh>
     </group>
   );
 }
@@ -657,12 +733,12 @@ function CertificationsStation({ position, rotation, onActivate, isActive }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // ENVIRONMENT: Road, City Buildings, Trees, Atmospherics
 // ─────────────────────────────────────────────────────────────────────────────
-function SunsetSky() {
+function SunsetSky({ palette }) {
   const shader = useMemo(() => new THREE.ShaderMaterial({
     uniforms: {
-      colorTop: { value: new THREE.Color("#4a90e2") },
-      colorMid: { value: new THREE.Color("#ffb17a") },
-      colorBtm: { value: new THREE.Color("#ffe099") }
+      colorTop: { value: new THREE.Color(palette.skyTop) },
+      colorMid: { value: new THREE.Color(palette.skyMid) },
+      colorBtm: { value: new THREE.Color(palette.skyBottom) }
     },
     vertexShader: `
       varying vec3 vWorldPosition;
@@ -686,33 +762,67 @@ function SunsetSky() {
     `,
     side: THREE.BackSide,
     fog: false
-  }), []);
+  }), [palette.skyBottom, palette.skyMid, palette.skyTop]);
+
   return <mesh renderOrder={-1000}><sphereGeometry args={[150, 32, 32]}/><primitive object={shader} attach="material"/></mesh>;
 }
 
-function WindyTrees({ data }) {
-  // Removed internal frame rotation hooks from backgrounds to save CPU
+function WindyTrees({ data, motion }) {
+  const swayRefs = useRef([]);
+
+  useFrame((state) => {
+    const t = state.clock.elapsedTime;
+    for (let i = 0; i < data.length; i++) {
+      const swayRoot = swayRefs.current[i];
+      if (!swayRoot) continue;
+      const sway = Math.sin(t * motion.treeSpeed + data[i].phase) * motion.treeSway;
+      swayRoot.rotation.z = sway;
+      swayRoot.rotation.x = sway * 0.12;
+      swayRoot.position.y = Math.sin(t * 0.7 + data[i].phase) * 0.04;
+
+      const foliage = swayRoot.children[1];
+      if (foliage) {
+        foliage.rotation.z = sway * 0.7;
+        foliage.rotation.y = Math.sin(t * 0.35 + data[i].phase) * 0.12;
+      }
+    }
+  });
+
   return <>{data.map((t, i) => (
     <group key={i} position={[t.x, 0, t.z]} scale={t.scale} rotation={[0, t.rot, 0]}>
-      <mesh position={[0, t.h/2, 0]}>
-        <cylinderGeometry args={[0.15, 0.25, t.h, 4]}/>
-        <meshLambertMaterial color="#1f110a"/>
-      </mesh>
-      <group position={[0, t.h, 0]}>
-        <mesh position={[0, 1.5, 0]}>
-          <coneGeometry args={[1.6, 3.5, 4]}/>
-          <meshLambertMaterial color="#0b2413"/>
+      <group ref={(el) => { swayRefs.current[i] = el; }}>
+        <mesh position={[0, t.h/2, 0]}>
+          <cylinderGeometry args={[0.15, 0.25, t.h, 4]}/>
+          <meshLambertMaterial color="#1f110a"/>
         </mesh>
-        <mesh position={[0, 2.8, 0]}>
-          <coneGeometry args={[1.0, 2.0, 4]}/>
-          <meshLambertMaterial color="#16381d"/>
-        </mesh>
+        <group position={[0, t.h, 0]}>
+          <mesh position={[0, 1.5, 0]}>
+            <coneGeometry args={[1.6, 3.5, 4]}/>
+            <meshLambertMaterial color="#0b2413"/>
+          </mesh>
+          <mesh position={[0, 2.8, 0]}>
+            <coneGeometry args={[1.0, 2.0, 4]}/>
+            <meshLambertMaterial color="#16381d"/>
+          </mesh>
+        </group>
       </group>
     </group>
   ))}</>;
 }
 
-function StreetProps({ data }) {
+function StreetProps({ data, motion, palette }) {
+  const glowRefs = useRef([]);
+
+  useFrame((state) => {
+    const t = state.clock.elapsedTime;
+    for (let i = 0; i < glowRefs.current.length; i++) {
+      const glow = glowRefs.current[i];
+      if (!glow) continue;
+      const pulse = 0.52 + Math.sin(t * 1.4 + data[i].phase) * motion.lampFlicker;
+      glow.material.opacity = Math.max(0.18, Math.min(0.72, pulse));
+    }
+  });
+
   return <>{data.map((l, i) => (
     <group key={`prop-${i}`} position={[l.x, 0, l.z]}>
       <mesh position={[0, 2.5, 0]}>
@@ -727,9 +837,9 @@ function StreetProps({ data }) {
         <boxGeometry args={[0.3, 0.08, 0.5]}/>
         <meshLambertMaterial color="#050505"/>
       </mesh>
-      <mesh position={[0, 4.75, (l.z<0?1.2:-1.2)]} rotation={[Math.PI/2, 0, 0]}>
+      <mesh ref={(el) => { glowRefs.current[i] = el; }} position={[0, 4.75, (l.z<0?1.2:-1.2)]} rotation={[Math.PI/2, 0, 0]}>
         <planeGeometry args={[0.2, 0.4]}/>
-        <meshBasicMaterial color="#FFD166"/>
+        <meshBasicMaterial color={palette.streetLamp} transparent opacity={0.5}/>
       </mesh>
       <mesh position={[0.4, 0.4, (l.z<0?-0.6:0.6)]}>
         <boxGeometry args={[0.4, 0.8, 0.4]}/>
@@ -739,8 +849,280 @@ function StreetProps({ data }) {
   ))}</>;
 }
 
-function GameEnvironment() {
+function TrafficCar({ car, route, motion, palette }) {
+  const root = useRef();
+
+  useFrame((state) => {
+    if (!root.current) return;
+    const t = state.clock.elapsedTime;
+    const routeLength = Math.abs(route.to - route.from);
+    const travel = (t * car.speed + car.offset * routeLength) % routeLength;
+    const axisValue = route.from < route.to ? route.from + travel : route.from - travel;
+
+    if (route.axis === 'x') {
+      root.current.position.set(axisValue, 0.12 + Math.sin(t * 4 + car.phase) * motion.trafficBob, route.coord + car.laneOffset);
+    } else {
+      root.current.position.set(route.coord + car.laneOffset, 0.12 + Math.sin(t * 4 + car.phase) * motion.trafficBob, axisValue);
+    }
+    root.current.rotation.y = route.rotation;
+  });
+
+  return (
+    <group ref={root} frustumCulled={false} scale={car.scale}>
+      <mesh position={[0, 0.2, 0]}>
+        <boxGeometry args={[1.45, 0.34, 0.78]}/>
+        <meshStandardMaterial color={car.color} roughness={0.72}/>
+      </mesh>
+      <mesh position={[0.12, 0.43, 0]}>
+        <boxGeometry args={[0.74, 0.24, 0.66]}/>
+        <meshStandardMaterial color="#d9e2ec" roughness={0.35}/>
+      </mesh>
+      {[-0.42, 0.42].map((z) => (
+        <group key={z}>
+          <mesh position={[-0.46, 0.02, z]} rotation={[-Math.PI/2, 0, 0]}>
+            <cylinderGeometry args={[0.14, 0.14, 0.12, 10]}/>
+            <meshStandardMaterial color="#09090b" roughness={0.95}/>
+          </mesh>
+          <mesh position={[0.46, 0.02, z]} rotation={[-Math.PI/2, 0, 0]}>
+            <cylinderGeometry args={[0.14, 0.14, 0.12, 10]}/>
+            <meshStandardMaterial color="#09090b" roughness={0.95}/>
+          </mesh>
+        </group>
+      ))}
+      <mesh position={[0.76, 0.2, 0.2]}>
+        <boxGeometry args={[0.06, 0.08, 0.12]}/>
+        <meshLambertMaterial color={palette.carHead} emissive={palette.carHead} emissiveIntensity={0.65}/>
+      </mesh>
+      <mesh position={[0.76, 0.2, -0.2]}>
+        <boxGeometry args={[0.06, 0.08, 0.12]}/>
+        <meshLambertMaterial color={palette.carHead} emissive={palette.carHead} emissiveIntensity={0.65}/>
+      </mesh>
+      <mesh position={[-0.76, 0.2, 0.2]}>
+        <boxGeometry args={[0.05, 0.08, 0.12]}/>
+        <meshLambertMaterial color={palette.carTail} emissive={palette.carTail} emissiveIntensity={0.45}/>
+      </mesh>
+      <mesh position={[-0.76, 0.2, -0.2]}>
+        <boxGeometry args={[0.05, 0.08, 0.12]}/>
+        <meshLambertMaterial color={palette.carTail} emissive={palette.carTail} emissiveIntensity={0.45}/>
+      </mesh>
+    </group>
+  );
+}
+
+function TrafficFlow({ profile, palette, motion }) {
+  const routes = useMemo(() => ([
+    { axis: 'x', from: -92, to: 92, coord: -2.4, rotation: 0 },
+    { axis: 'x', from: 92, to: -92, coord: 2.4, rotation: Math.PI },
+    { axis: 'z', from: -50, to: 50, coord: 27.8, rotation: -Math.PI/2 }
+  ]), []);
+
+  const cars = useMemo(() => {
+    const counts = routes.map((_, routeIndex) => Math.floor(profile.trafficCount / routes.length) + (routeIndex < (profile.trafficCount % routes.length) ? 1 : 0));
+    const items = [];
+
+    routes.forEach((_, routeIndex) => {
+      const laneCount = counts[routeIndex];
+      for (let j = 0; j < laneCount; j++) {
+        items.push({
+          id: `car-${routeIndex}-${j}`,
+          routeIndex,
+          offset: laneCount === 1 ? 0.17 * (routeIndex + 1) : j / laneCount,
+          speed: 8.5 + routeIndex * 1.1 + j * 0.45,
+          scale: 0.9 + ((routeIndex + j) % 3) * 0.08,
+          laneOffset: ((j % 2) - 0.5) * 0.18,
+          phase: routeIndex * 1.7 + j * 0.9,
+          color: palette.carColors[(routeIndex * 2 + j) % palette.carColors.length]
+        });
+      }
+    });
+
+    return items;
+  }, [palette.carColors, profile.trafficCount, routes]);
+
+  return <>{cars.map((car) => (
+    <TrafficCar key={car.id} car={car} route={routes[car.routeIndex]} motion={motion} palette={palette}/>
+  ))}</>;
+}
+
+function PedestrianWalker({ walker, motion, palette }) {
+  const root = useRef();
+  const torso = useRef();
+  const leftLeg = useRef();
+  const rightLeg = useRef();
+  const leftArm = useRef();
+  const rightArm = useRef();
+
+  useFrame((state) => {
+    if (!root.current) return;
+    const t = state.clock.elapsedTime;
+    const routeLength = Math.abs(walker.to - walker.from);
+    const travel = (t * walker.speed + walker.offset * routeLength) % routeLength;
+    const x = walker.from < walker.to ? walker.from + travel : walker.from - travel;
+    const stride = Math.sin(t * motion.pedestrianStride + walker.phase);
+
+    root.current.position.set(x, 0.02, walker.z);
+    root.current.rotation.y = walker.from < walker.to ? 0 : Math.PI;
+
+    if (torso.current) torso.current.position.y = 0.82 + Math.abs(stride) * motion.pedestrianBob;
+    if (leftLeg.current) leftLeg.current.rotation.x = stride * 0.55;
+    if (rightLeg.current) rightLeg.current.rotation.x = -stride * 0.55;
+    if (leftArm.current) leftArm.current.rotation.x = -stride * 0.45;
+    if (rightArm.current) rightArm.current.rotation.x = stride * 0.45;
+  });
+
+  return (
+    <group ref={root} frustumCulled={false} scale={walker.scale}>
+      <mesh ref={torso} position={[0, 0.82, 0]}>
+        <capsuleGeometry args={[0.11, 0.52, 4, 8]}/>
+        <meshStandardMaterial color="#14171f" emissive={palette.pedestrianRim} emissiveIntensity={0.08} roughness={0.92}/>
+      </mesh>
+      <mesh position={[0, 1.42, 0]}>
+        <sphereGeometry args={[0.13, 10, 10]}/>
+        <meshStandardMaterial color="#171923" roughness={0.95}/>
+      </mesh>
+      <mesh ref={leftLeg} position={[-0.08, 0.34, 0]}>
+        <boxGeometry args={[0.09, 0.62, 0.1]}/>
+        <meshStandardMaterial color="#0b0d12" roughness={0.95}/>
+      </mesh>
+      <mesh ref={rightLeg} position={[0.08, 0.34, 0]}>
+        <boxGeometry args={[0.09, 0.62, 0.1]}/>
+        <meshStandardMaterial color="#0b0d12" roughness={0.95}/>
+      </mesh>
+      <mesh ref={leftArm} position={[-0.2, 0.88, 0]}>
+        <boxGeometry args={[0.08, 0.48, 0.08]}/>
+        <meshStandardMaterial color="#121722" roughness={0.95}/>
+      </mesh>
+      <mesh ref={rightArm} position={[0.2, 0.88, 0]}>
+        <boxGeometry args={[0.08, 0.48, 0.08]}/>
+        <meshStandardMaterial color="#121722" roughness={0.95}/>
+      </mesh>
+    </group>
+  );
+}
+
+function PedestrianHints({ profile, palette, motion }) {
+  const routes = useMemo(() => ([
+    { from: -84, to: -46, z: 8.85, phase: 0.2 },
+    { from: -42, to: -82, z: -8.85, phase: 1.1 },
+    { from: 38, to: 82, z: 8.85, phase: 2.2 },
+    { from: 80, to: 40, z: -8.85, phase: 3.3 }
+  ]), []);
+
+  const routeIndexes = profile.pedestrianCount <= 2 ? [0, 2] : [0, 1, 2, 3];
+  const walkers = useMemo(() => routeIndexes.map((routeIndex, i) => ({
+    id: `walker-${routeIndex}`,
+    ...routes[routeIndex],
+    offset: 0.18 + i * 0.23,
+    speed: 3.1 + i * 0.18,
+    scale: 0.95 + i * 0.04
+  })), [routeIndexes, routes]);
+
+  return <>{walkers.map((walker) => (
+    <PedestrianWalker key={walker.id} walker={walker} motion={motion} palette={palette}/>
+  ))}</>;
+}
+
+function SuspendedStreetDetails({ count, motion, palette }) {
+  const refs = useRef([]);
+  const details = useMemo(() => ([
+    { x: 25, y: 8.4, z: -7.4, length: 14.5, phase: 0.4, banner: true },
+    { x: 25, y: 8.7, z: -2.0, length: 14.0, phase: 1.1, banner: false },
+    { x: 25, y: 8.2, z: 3.4, length: 13.2, phase: 2.1, banner: true },
+    { x: 25, y: 8.5, z: 8.3, length: 14.8, phase: 3.2, banner: false }
+  ]).slice(0, count), [count]);
+
+  useFrame((state) => {
+    const t = state.clock.elapsedTime;
+    for (let i = 0; i < details.length; i++) {
+      const item = refs.current[i];
+      if (!item) continue;
+      item.rotation.z = Math.sin(t * motion.wireSpeed + details[i].phase) * motion.wireSway;
+      item.position.y = details[i].y + Math.sin(t * motion.wireSpeed * 0.5 + details[i].phase) * 0.08;
+    }
+  });
+
+  return <>{details.map((detail, i) => (
+    <group key={`wire-${i}`} ref={(el) => { refs.current[i] = el; }} position={[detail.x, detail.y, detail.z]}>
+      <mesh>
+        <boxGeometry args={[detail.length, 0.04, 0.04]}/>
+        <meshBasicMaterial color="#6b7280"/>
+      </mesh>
+      {detail.banner && (
+        <mesh position={[0, -0.28, 0]}>
+          <boxGeometry args={[0.9, 0.34, 0.02]}/>
+          <meshBasicMaterial color={palette.haze} transparent opacity={0.28}/>
+        </mesh>
+      )}
+    </group>
+  ))}</>;
+}
+
+function AtmosphericFX({ profile, palette, motion }) {
+  const hazeRef = useRef();
+  const pointsRef = useRef();
+  const tickRef = useRef(0);
+
+  const particles = useMemo(() => Array.from({ length: profile.particleCount }).map((_, i) => ({
+    x: -104 + (i % 18) * 12 + (i % 3) * 1.3,
+    y: 0.8 + (i % 7) * 0.52,
+    z: -8.5 + (i % 11) * 1.6,
+    drift: 0.65 + (i % 5) * 0.09,
+    phase: i * 0.73
+  })), [profile.particleCount]);
+
+  const positionArray = useMemo(() => {
+    const arr = new Float32Array(profile.particleCount * 3);
+    particles.forEach((particle, i) => {
+      arr[i * 3] = particle.x;
+      arr[i * 3 + 1] = particle.y;
+      arr[i * 3 + 2] = particle.z;
+    });
+    return arr;
+  }, [particles, profile.particleCount]);
+
+  useFrame((state) => {
+    const t = state.clock.elapsedTime;
+
+    if (hazeRef.current) {
+      hazeRef.current.material.opacity = 0.055 + Math.sin(t * 0.35) * motion.hazePulse;
+      hazeRef.current.position.z = Math.sin(t * 0.22) * 0.45;
+    }
+
+    if (!pointsRef.current) return;
+    tickRef.current = (tickRef.current + 1) % profile.updateDivisor;
+    if (tickRef.current !== 0) return;
+
+    const attr = pointsRef.current.geometry.attributes.position;
+    for (let i = 0; i < particles.length; i++) {
+      const particle = particles[i];
+      attr.array[i * 3] = ((((particle.x + t * motion.dustDrift * particle.drift) + 110) % 220) - 110);
+      attr.array[i * 3 + 1] = particle.y + Math.sin(t * 0.8 + particle.phase) * 0.12;
+      attr.array[i * 3 + 2] = particle.z + Math.sin(t * 0.45 + particle.phase) * 0.35;
+    }
+    attr.needsUpdate = true;
+  });
+
+  return (
+    <>
+      {profile.haze && (
+        <mesh ref={hazeRef} rotation={[-Math.PI/2, 0, 0]} position={[0, 0.09, 0]}>
+          <planeGeometry args={[188, 16]}/>
+          <meshBasicMaterial color={palette.haze} transparent opacity={0.06} side={THREE.DoubleSide} depthWrite={false}/>
+        </mesh>
+      )}
+      <points ref={pointsRef}>
+        <bufferGeometry>
+          <bufferAttribute attach="attributes-position" array={positionArray} count={positionArray.length / 3} itemSize={3}/>
+        </bufferGeometry>
+        <pointsMaterial color={palette.dust} size={0.22} transparent opacity={0.38} depthWrite={false}/>
+      </points>
+    </>
+  );
+}
+
+function GameEnvironment({ palette, profile, motion }) {
   const rs = Math.random;
+  const buildingMaterialRefs = useRef([]);
 
   const windowTex = useMemo(() => {
     const c = document.createElement('canvas');
@@ -754,14 +1136,14 @@ function GameEnvironment() {
     const padX = (512 - (cols * wWidth)) / (cols + 1);
     const padY = (512 - (rows * wHeight)) / (rows + 1);
     
-    const colors = ['#030408','#030408','#030408','#030408','#030408', '#ffcca8', '#ffffff', '#ff9966'];
+    const colors = ['#030408', '#030408', '#030408', '#ffcca8', '#ffffff', '#ff9966'];
     for(let row=0; row<rows; row++) {
       for(let col=0; col<cols; col++) {
         // Vertical stripes for modern skyscraper look
         if (col % 2 === 0 && rs() > 0.2) continue; 
         const x = padX + col*(wWidth + padX);
         const y = padY + row*(wHeight + padY);
-        ctx.fillStyle = colors[Math.floor(Math.random() * colors.length)];
+        ctx.fillStyle = colors[Math.floor(rs() * colors.length)];
         ctx.fillRect(x, y, wWidth, wHeight);
       }
     }
@@ -788,7 +1170,23 @@ function GameEnvironment() {
     const tierOffsetX = (rs() - 0.5) * width * 0.35;
     const tierOffsetZ = (rs() - 0.5) * depth * 0.35;
     
-    return { x, z, width, height, depth, col, hasTier, tierHeight: height + 10 + rs()*15, tierWidth: width*0.6, tierDepth: depth*0.6, tierOffsetX, tierOffsetZ };
+    return {
+      x,
+      z,
+      width,
+      height,
+      depth,
+      col,
+      hasTier,
+      tierHeight: height + 10 + rs()*15,
+      tierWidth: width*0.6,
+      tierDepth: depth*0.6,
+      tierOffsetX,
+      tierOffsetZ,
+      windowPhase: rs() * Math.PI * 2,
+      windowSpeed: 0.35 + rs() * 0.9,
+      windowBase: 0.08 + rs() * 0.08
+    };
   }), []);
 
   const trees = useMemo(() => Array.from({length: 45}).map(() => {
@@ -796,7 +1194,7 @@ function GameEnvironment() {
     const side = rs() > 0.5 ? 1 : -1;
     // Pushed trees back symmetrically
     const z = side === 1 ? (30 + rs() * 12) : (-22 - rs() * 10);
-    return { x, z, h: 2 + rs()*1.5, scale: 0.7 + rs()*0.6, rot: rs()*Math.PI*2 };
+    return { x, z, h: 2 + rs()*1.5, scale: 0.7 + rs()*0.6, rot: rs()*Math.PI*2, phase: rs() * Math.PI * 2 };
   }), []);
 
   const bgBuildings = useMemo(() => Array.from({length: 60}).map(() => {
@@ -813,16 +1211,30 @@ function GameEnvironment() {
     const arr = [];
     for(let x=-48; x<=48; x+=24) { 
       if(x !== 0 && x !== 24) { // Don't block the new x=25 intersection!
-        arr.push({ x: x+rs()*2, z: -5.5 });
-        arr.push({ x: x+6+rs()*2, z: 5.5 });
+        arr.push({ x: x+rs()*2, z: -5.5, phase: rs() * Math.PI * 2 });
+        arr.push({ x: x+6+rs()*2, z: 5.5, phase: rs() * Math.PI * 2 });
       }
     }
     return arr;
   }, []);
 
+  useFrame((state) => {
+    const t = state.clock.elapsedTime;
+    for (let i = 0; i < buildings.length; i++) {
+      const flicker = buildings[i].windowBase
+        + Math.max(0, Math.sin(t * buildings[i].windowSpeed + buildings[i].windowPhase)) * motion.windowFlickerSwing
+        + (Math.sin(t * 0.45 + buildings[i].windowPhase * 2) > 0.985 ? 0.18 : 0);
+
+      const materialA = buildingMaterialRefs.current[i * 2];
+      const materialB = buildingMaterialRefs.current[i * 2 + 1];
+      if (materialA) materialA.emissiveIntensity = flicker;
+      if (materialB) materialB.emissiveIntensity = flicker * 0.92;
+    }
+  });
+
   return (
     <group position={[0,-2.0,0]}>
-      <SunsetSky />
+      <SunsetSky palette={palette} />
 
       {/* Far Background Skyline */}
       <group>
@@ -851,6 +1263,11 @@ function GameEnvironment() {
         <planeGeometry args={[14, 120]}/>
         <meshStandardMaterial color="#334155" roughness={0.8} metalness={0.1}/>
       </mesh>
+
+      <AtmosphericFX profile={profile} palette={palette} motion={motion}/>
+      <SuspendedStreetDetails count={profile.wireCount} motion={motion} palette={palette}/>
+      <TrafficFlow profile={profile} palette={palette} motion={motion}/>
+      <PedestrianHints profile={profile} palette={palette} motion={motion}/>
 
       {/* Intersection Zebra Crossing / Markings */}
       <group position={[25, 0.015, 0]}>
@@ -957,20 +1374,20 @@ function GameEnvironment() {
         );
       })}
 
-      <WindyTrees data={trees} />
-      <StreetProps data={props} />
+      <WindyTrees data={trees} motion={motion} />
+      <StreetProps data={props} motion={motion} palette={palette} />
 
       {/* Multi-layered Skyscrapers - Standard basic colors to remove lighting overhead */}
       {buildings.map((b, i) => (
         <group frustumCulled={false} key={`bldg-${i}`} position={[b.x, 0, b.z]}>
           <mesh position={[0, b.height/2, 0]}>
             <boxGeometry args={[b.width, b.height, b.depth]}/>
-            <meshBasicMaterial color={b.col} map={windowTex} />
+            <meshLambertMaterial ref={(el) => { buildingMaterialRefs.current[i * 2] = el; }} color={b.col} map={windowTex} emissive={palette.windowGlow} emissiveMap={windowTex} emissiveIntensity={b.windowBase} />
           </mesh>
           {b.hasTier && (
             <mesh position={[b.tierOffsetX, b.tierHeight/2 + b.height/4, b.tierOffsetZ]}>
               <boxGeometry args={[b.tierWidth, b.tierHeight/2, b.tierDepth]}/>
-              <meshBasicMaterial color={b.col} map={windowTex} />
+              <meshLambertMaterial ref={(el) => { buildingMaterialRefs.current[i * 2 + 1] = el; }} color={b.col} map={windowTex} emissive={palette.windowGlow} emissiveMap={windowTex} emissiveIntensity={b.windowBase * 0.92} />
             </mesh>
           )}
         </group>
@@ -1149,11 +1566,11 @@ function MobileControls({ onJoystick, hidden }) {
 // MAIN SCENE
 // ─────────────────────────────────────────────────────────────────────────────
 const STATION_POS = {
-  skills:  [32, -0.5, 17],   
+  skills:  [34, -1.4, 13],   
   profile: [0, -1, -12],    
-  projects: [-17, -0.9, 3.0],    
+  projects: [-17, -0.9, 13.0],    
   contact:  [15, -0.5, -10],   
-  certifications: [40, -1, -12.0], 
+  certifications: [40, -1, -15.0], 
 };
 const STATION_ROT = {
   skills:  0,
@@ -1182,6 +1599,9 @@ export default function GameScene() {
   // Safely hook joystick coordinates instead of keys
   const [mobileJoystick, setMobileJoystick] = useState({ x: 0, y: 0 });
   const [isMobile, setIsMobile] = useState(false);
+  const envPalette = ENV_PRESET.palettes[ENV_PRESET.activePalette];
+  const envProfile = isMobile ? ENV_PRESET.quality.mobile : ENV_PRESET.quality.desktop;
+  const envMotion = ENV_PRESET.motion;
 
   useEffect(() => { 
     // Strict mobile device detection natively dropping window innerWidth checks for maximum desktop safety
@@ -1247,20 +1667,18 @@ export default function GameScene() {
         <Suspense fallback={null}>
           <CameraController mobileJoystick={mobileJoystick} highSensitivity={highSensitivity} activeSection={activeSection} />
           {/* Bright Daylight Illumination Setup */}
-          <color attach="background" args={['#ffe099']} />
-          <fog attach="fog" args={['#ffd2a6', 20, 140]}/>
+          <color attach="background" args={[envPalette.background]} />
+          <fog attach="fog" args={[envPalette.fog, envPalette.fogNear, envPalette.fogFar]}/>
 
-          <ambientLight intensity={1.5} color="#ffffff"/>
-          <directionalLight position={[30, 25, -40]} intensity={3.5} color="#ffedd5" castShadow={false} />
+          <ambientLight intensity={1.45} color={envPalette.ambient}/>
+          <directionalLight position={[30, 25, -40]} intensity={3.3} color={envPalette.sun} castShadow={false} />
 
           {/* Minimal Station Lights - Reduced intensity for performance */}
-          <pointLight position={[-9, 3, -1]} intensity={1.5} color="#4A90D9" distance={10} />
-          <pointLight position={[-3, 3, 2]}  intensity={1.5} color="#D4A843" distance={10} />
-          <pointLight position={[3,  3, 2]}  intensity={1.5} color="#6AC46A" distance={10} />
-          <pointLight position={[9,  3, -1]} intensity={1.5} color="#D46A6A" distance={10} />
-          <pointLight position={[15, 3, 2]}  intensity={1.5} color="#B388FF" distance={10} />
+          {envPalette.stationLights.map((light, idx) => (
+            <pointLight key={`station-light-${idx}`} position={light.position} intensity={light.intensity} color={light.color} distance={11} />
+          ))}
           
-          <GameEnvironment/>
+          <GameEnvironment palette={envPalette} profile={envProfile} motion={envMotion}/>
 
           <ProfileStation  position={STATION_POS.profile}  rotation={[0, STATION_ROT.profile, 0]}  onActivate={()=>activateStation('profile')}  isActive={activeSection==='profile'}/>
           <ProjectsStation position={STATION_POS.projects} rotation={[0, STATION_ROT.projects, 0]} onActivate={()=>activateStation('projects')} isActive={activeSection==='projects'}/>
