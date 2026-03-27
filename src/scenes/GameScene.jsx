@@ -20,14 +20,14 @@ export const camTarget = {
   hasSaved: false,
 };
 
-export const flyToStation = (x, y, z, yaw, pitch, saveCurrent = false) => {
+export const flyToStation = (x, y, z, yaw, pitch, saveCurrent = false, targetFov = null) => {
   if (saveCurrent) {
     camTarget.savedPos.copy(CURRENT_CAM.pos);
     camTarget.savedYaw = CURRENT_CAM.yaw;
     camTarget.savedPitch = CURRENT_CAM.pitch;
     camTarget.hasSaved = true;
   }
-  window.dispatchEvent(new CustomEvent('camera-fly', { detail: { x, y, z, yaw, pitch } }));
+  window.dispatchEvent(new CustomEvent('camera-fly', { detail: { x, y, z, yaw, pitch, fov: targetFov } }));
 };
 
 export const returnCamera = () => {
@@ -38,7 +38,8 @@ export const returnCamera = () => {
         y: camTarget.savedPos.y, 
         z: camTarget.savedPos.z, 
         yaw: camTarget.savedYaw, 
-        pitch: camTarget.savedPitch 
+        pitch: camTarget.savedPitch,
+        fov: 62 // Base FOV
       } 
     }));
     camTarget.hasSaved = false;
@@ -68,14 +69,20 @@ function CameraController({ mobileJoystick, highSensitivity, activeSection }) {
     const killFly = () => {
       gsap.killTweensOf(curPos.current);
       gsap.killTweensOf(input.current);
+      gsap.killTweensOf(camera);
     };
 
     const handleFly = (e) => {
-      const { x, y, z, yaw, pitch } = e.detail;
+      const { x, y, z, yaw, pitch, fov } = e.detail;
       killFly();
-      // Smooth flight exact physical requirement: ~1.2s power3.out
-      gsap.to(curPos.current, { x, y, z, duration: 1.2, ease: "power3.out" });
-      gsap.to(input.current, { targetYaw: yaw, targetPitch: pitch, duration: 1.2, ease: "power3.out" });
+      
+      // Smooth natural walking motion: 1.5s power3.out
+      gsap.to(curPos.current, { x, y, z, duration: 1.5, ease: "power3.out" });
+      gsap.to(input.current, { targetYaw: yaw, targetPitch: pitch, duration: 1.5, ease: "power3.out" });
+      
+      if (fov !== undefined && fov !== null) {
+        gsap.to(camera, { fov: fov, duration: 1.5, ease: "power2.out", onUpdate: () => camera.updateProjectionMatrix() });
+      }
     };
     window.addEventListener('camera-fly', handleFly);
 
@@ -446,15 +453,14 @@ function ProjectsStation({ position, rotation, onActivate, isActive }) {
 // SKILLS — Circular Glowing Lab / Bench
 // ─────────────────────────────────────────────────────────────────────────────
 function SkillsStation({ position, rotation, onActivate, isActive }) {
-  const root=useRef(); const benchRef=useRef();
+  const root=useRef(); 
   const [hov,setHov]=useState(false);
-  const C='#6AC46A';
+  const C='#eab308'; // Traffic Yellow
   
   useFrame((state)=>{
     const t=state.clock.elapsedTime;
     if(!root.current) return;
     root.current.position.y=position[1]+Math.sin(t*.5)*.06;
-    if(benchRef.current) benchRef.current.rotation.y = t*0.2;
   });
 
   const oe=()=>{setHov(true);document.body.style.cursor='pointer';audio.hover();if(root.current) gsap.to(root.current.scale,{x:1.06,y:1.06,z:1.06,duration:.3,ease:'power2.out'});};
@@ -462,41 +468,51 @@ function SkillsStation({ position, rotation, onActivate, isActive }) {
 
   return (
     <group ref={root} position={position} rotation={rotation} onPointerEnter={oe} onPointerLeave={ol} onClick={()=>{audio.click();onActivate();}}>
-      {/* Grounding Shadow Plane */}
-      <mesh position={[0,-1.1,0]} rotation={[-Math.PI/2,0,0]}><circleGeometry args={[2.2, 32]}/><meshBasicMaterial color="#000" transparent opacity={0.6}/></mesh>
+      {/* Grounding Base */}
+      <mesh position={[0,-1.0,0]} rotation={[-Math.PI/2,0,0]}><circleGeometry args={[2.5, 32]}/><meshBasicMaterial color="#000" transparent opacity={0.6}/></mesh>
+      <mesh position={[0,-0.8,0]}><cylinderGeometry args={[1.4, 1.6, 0.4, 8]}/><meshLambertMaterial color="#1e293b"/></mesh>
 
-      <mesh position={[0,-0.8,0]}><cylinderGeometry args={[1.6, 1.8, 0.4, 12]}/><meshLambertMaterial color="#080f08"/></mesh>
-      <mesh position={[0,-0.59,0]} rotation={[-Math.PI/2,0,0]}><ringGeometry args={[1.2, 1.4, 12]}/><meshBasicMaterial color={C}/></mesh>
-      <mesh position={[0,-0.2,0]}><cylinderGeometry args={[0.4, 0.6, 1.2, 8]}/><meshLambertMaterial color="#040a04"/></mesh>
-      
-      <group position={[0, 0.4, 0]} ref={benchRef}>
-        <mesh><cylinderGeometry args={[1.4, 1.4, 0.1, 10]}/><meshLambertMaterial color="#0f1f0f"/></mesh>
+      {/* Tall Central Pillar */}
+      <mesh position={[0, 0.6, 0]}><cylinderGeometry args={[0.3, 0.4, 2.8, 8]}/><meshLambertMaterial color="#334155"/></mesh>
+
+      {/* Control Cabin */}
+      <group position={[0, 2.6, 0]}>
+        {/* Cabin Base */}
+        <mesh position={[0, -0.6, 0]}><cylinderGeometry args={[1.5, 0.8, 0.4, 8]}/><meshLambertMaterial color="#0f172a"/></mesh>
         
-        {[-1.0, 0, 1.0].map((x, i) => 
-          [-1.0, 0, 1.0].map((z, j) => {
-            if(x===0 && z===0) return null;
-            return (
-              <mesh key={`${x}-${z}`} position={[x, 0.5, z]}>
-                <boxGeometry args={[0.2, 0.2, 0.2]}/>
-                <meshBasicMaterial color={C} wireframe/>
-              </mesh>
-            );
-          })
-        )}
+        {/* Glass Windows */}
+        <mesh position={[0, 0, 0]}><cylinderGeometry args={[1.5, 1.5, 1.0, 8]}/><meshBasicMaterial color="#38bdf8" transparent opacity={(hov||isActive)?0.5:0.2}/></mesh>
+        
+        {/* Cabin Roof */}
+        <mesh position={[0, 0.6, 0]}><cylinderGeometry args={[1.5, 1.6, 0.2, 8]}/><meshLambertMaterial color="#1e293b"/></mesh>
+        
+        {/* Antennas / Gizmos */}
+        <mesh position={[0, 1.1, 0]}><cylinderGeometry args={[0.05, 0.05, 1.0]}/><meshLambertMaterial color="#fff"/></mesh>
+        <mesh position={[0, 1.6, 0]}><sphereGeometry args={[0.15]}/><meshBasicMaterial color="#ef4444"/></mesh>
       </group>
+
+      {/* Traffic Light Arrays */}
+      {[-1.8, 1.8].map((x) => (
+        <group key={x} position={[x, 2.6, 0]}>
+          <mesh position={[0, 0, 0]}><boxGeometry args={[0.4, 1.2, 0.4]}/><meshLambertMaterial color="#000"/></mesh>
+          <mesh position={[0, 0.4, 0.21]}><circleGeometry args={[0.12, 16]}/><meshBasicMaterial color="#ef4444" emissive="#ef4444" emissiveIntensity={(hov||isActive)?1.2:0.2}/></mesh>
+          <mesh position={[0, 0.0, 0.21]}><circleGeometry args={[0.12, 16]}/><meshBasicMaterial color="#eab308" emissive="#eab308" emissiveIntensity={(hov||isActive)?1.2:0.2}/></mesh>
+          <mesh position={[0, -0.4, 0.21]}><circleGeometry args={[0.12, 16]}/><meshBasicMaterial color="#22c55e" emissive="#22c55e" emissiveIntensity={(hov||isActive)?1.2:0.2}/></mesh>
+        </group>
+      ))}
 
       <mesh position={[0,-1.98,0]} rotation={[-Math.PI/2,0,0]}><circleGeometry args={[2.0,32]}/><meshBasicMaterial color={C} transparent opacity={(hov||isActive) ? 0.2 : 0.05}/></mesh>
 
       {/* Universal 3D Branding Sign */}
-<mesh position={[0, 2.5, 0]} rotation={[0, 0.26, 0]}> {/* Added rotation */}
+      <mesh position={[0, 5.0, 0]} rotation={[0, 0.26, 0]}>
         <boxGeometry args={[2.8, 0.8, 0.1]}/>
         <meshBasicMaterial color={C} transparent opacity={0.15}/>
       </mesh>
       
       <Html 
         zIndexRange={[100, 0]} 
-        position={[0, 2.5, 0.1]} 
-        rotation={[0, -1, 0]} // Added rotation here too
+        position={[0, 5.0, 0.1]} 
+        rotation={[0, -1, 0]} 
         center 
         transform 
         style={{pointerEvents:'none',fontFamily:"'Oswald'",fontSize:28,fontWeight:900,letterSpacing:'.3em',color:'#fff',textShadow:`0 0 16px ${C}`}}
@@ -741,8 +757,9 @@ function GameEnvironment() {
   }, []);
 
 
-  const buildings = useMemo(() => Array.from({length: 25}).map(() => {
-    const x = (rs() * 180) - 90; 
+  // INCREASED DENSITY for more city feel
+  const buildings = useMemo(() => Array.from({length: 45}).map(() => {
+    const x = (rs() * 260) - 130; 
     const side = rs() > 0.5 ? 1 : -1;
     // Pushed bounds further out to prevent overlapping with user's custom station placements
     const z = side === 1 ? (45 + rs() * 25) : (-35 - rs() * 20); 
@@ -760,18 +777,28 @@ function GameEnvironment() {
     return { x, z, width, height, depth, col, hasTier, tierHeight: height + 10 + rs()*15, tierWidth: width*0.6, tierDepth: depth*0.6, tierOffsetX, tierOffsetZ };
   }), []);
 
-  const trees = useMemo(() => Array.from({length: 20}).map(() => {
-    const x = (rs() * 180) - 90;
+  const trees = useMemo(() => Array.from({length: 45}).map(() => {
+    const x = (rs() * 260) - 130;
     const side = rs() > 0.5 ? 1 : -1;
     // Pushed trees back symmetrically
     const z = side === 1 ? (30 + rs() * 12) : (-22 - rs() * 10);
     return { x, z, h: 2 + rs()*1.5, scale: 0.7 + rs()*0.6, rot: rs()*Math.PI*2 };
   }), []);
 
+  const bgBuildings = useMemo(() => Array.from({length: 60}).map(() => {
+    const x = (rs() * 400) - 200; 
+    const side = rs() > 0.5 ? 1 : -1;
+    const z = side === 1 ? (80 + rs() * 80) : (-70 - rs() * 80); 
+    const width = 15 + rs() * 25;
+    const depth = 15 + rs() * 25;
+    const height = 60 + rs() * 120; 
+    return { x, z, width, height, depth };
+  }), []);
+
   const props = useMemo(() => {
     const arr = [];
     for(let x=-48; x<=48; x+=24) { 
-      if(x !== 0) {
+      if(x !== 0 && x !== 24) { // Don't block the new x=25 intersection!
         arr.push({ x: x+rs()*2, z: -5.5 });
         arr.push({ x: x+6+rs()*2, z: 5.5 });
       }
@@ -783,15 +810,31 @@ function GameEnvironment() {
     <group position={[0,-2.0,0]}>
       <SunsetSky />
 
+      {/* Far Background Skyline */}
+      <group>
+        {bgBuildings.map((b, i) => (
+          <mesh key={`bg-${i}`} position={[b.x, b.height/2 - 2, b.z]}>
+            <boxGeometry args={[b.width, b.height, b.depth]} />
+            <meshBasicMaterial color="#8ba3c7" />
+          </mesh>
+        ))}
+      </group>
+
       {/* City Ground */}
       <mesh rotation={[-Math.PI/2,0,0]} receiveShadow>
-        <planeGeometry args={[220, 220]}/>
+        <planeGeometry args={[280, 280]}/>
         <meshStandardMaterial color="#2d3748" roughness={1} metalness={0}/>
       </mesh>
 
       {/* Main Road */}
       <mesh rotation={[-Math.PI/2,0,0]} position={[0,0.01,0]} receiveShadow>
-        <planeGeometry args={[180, 14]}/>
+        <planeGeometry args={[260, 14]}/>
+        <meshStandardMaterial color="#4a5568" roughness={0.8} metalness={0.1}/>
+      </mesh>
+
+      {/* Perpendicular Intersection Junction (strictly for Skills Station) */}
+      <mesh rotation={[-Math.PI/2,0,0]} position={[25,0.012,0]} receiveShadow>
+        <planeGeometry args={[14, 120]}/>
         <meshStandardMaterial color="#4a5568" roughness={0.8} metalness={0.1}/>
       </mesh>
 
@@ -1097,18 +1140,28 @@ export default function GameScene() {
       setActiveSection(null); 
       return;
     }
-    const c=STATION_CAM[id]; if(!c) return;
+    const statPos = STATION_POS[id]; if(!statPos) return;
     
-    // Dynamically calculate the precise yaw and pitch required to look at the station from the fly-to position
-    const dx = c.look[0] - c.pos[0];
-    const dy = c.look[1] - c.pos[1];
-    const dz = c.look[2] - c.pos[2];
+    // 1. Maintain current viewing direction completely (do NOT rotate)
+    const targetYaw = CURRENT_CAM.yaw;
+    const targetPitch = CURRENT_CAM.pitch;
+
+    // 2. Calculate direction from camera straight toward the object
+    const objPos = new THREE.Vector3(...statPos);
+    const dir = objPos.clone().sub(CURRENT_CAM.pos);
     
-    const targetYaw = Math.atan2(dx, dz); 
-    const targetPitch = Math.atan2(dy, Math.sqrt(dx*dx + dz*dz));
+    // 3. Move camera slightly toward object, stopping 7 units away to keep distance
+    const dist = dir.length();
+    const stopDist = Math.max(dist - 7, 0); 
+    dir.normalize().multiplyScalar(stopDist);
     
-    // Trigger smooth GSAP camera flight and PASS TRUE to save state memory
-    flyToStation(c.pos[0], c.pos[1], c.pos[2], targetYaw, targetPitch, true);
+    const finalDest = CURRENT_CAM.pos.clone().add(dir);
+    
+    // Prevent sinking into the floor, establish comfortable standing height
+    finalDest.y = Math.max(finalDest.y, 1.2);
+    
+    // 4. Trigger smooth GSAP forward motion with micro-zoom (FOV 45)
+    flyToStation(finalDest.x, finalDest.y, finalDest.z, targetYaw, targetPitch, true, 45);
     setActiveSection(id);
   },[activeSection]);
 
